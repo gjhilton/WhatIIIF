@@ -1,0 +1,20 @@
+# Everything here is optional. Delete any line you don't need.
+# Commit ONE image (TIFF, PNG or JPEG) next to this file and push; the site builds itself.
+
+# title = "My image"            # defaults to the image file name
+# summary = "One line shown under the title."
+# attribution = "Credit line, e.g. Example Museum"
+# rights = "https://creativecommons.org/licenses/by/4.0/"   # a Creative Commons or RightsStatements.org URL
+# viewer = "openseadragon"      # or "mirador"; visitors can switch on the page
+# base_url = "https://my-domain.example"   # only for a custom domain
+
+# [[metadata]]                  # repeat this block for each extra field
+# label = "Date"
+# value = "1890"
+
+# [tiles]
+# size = 512                    # tile edge in pixels
+# quality = 85                  # JPEG quality, 1-100
+
+# [publish]
+# full = true                   # false = no full-size JPEG download (saves site space)

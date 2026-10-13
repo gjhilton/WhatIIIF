@@ -1,0 +1,32 @@
+# Checks for developing this template itself (not run on users' image commits).
+name: CI
+
+on:
+  pull_request:
+    paths: ['engine/**', 'package*.json', '.github/workflows/ci.yml']
+  push:
+    branches: [main]
+    paths: ['engine/**', 'package*.json', '.github/workflows/ci.yml']
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: engine/.node-version
+          cache: npm
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq libvips-tools && vips --version
+      - run: npm ci
+      - run: npm test
+      - name: Build a sample site with the deploy workflow's own build steps
+        # Kept out of content/, which in a copy of this template already holds someone's image.
+        run: |
+          mkdir "$RUNNER_TEMP/content"
+          vips black "$RUNNER_TEMP/content/sample.png" 3000 2000 --bands 3
+          npm run build:iiif -- --content "$RUNNER_TEMP/content"
+          npm run build:page
+      - run: npm run typecheck # the page is type-checked against the site config that build generated
+      - run: npx playwright install --with-deps chromium-headless-shell
+      - run: npm run test:smoke
