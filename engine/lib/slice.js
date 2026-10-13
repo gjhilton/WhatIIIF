@@ -29,6 +29,16 @@ async function normalise(source, work) {
 }
 
 /**
+ * The pyramid's scale factors: halve until the whole image fits in one tile. libvips versions disagree about
+ * listing that last level (8.15 leaves it out, 8.18 lists it), so the depth is decided here, not by libvips.
+ */
+export function scaleFactors({ width, height, tileSize }) {
+  const factors = [1];
+  while (Math.max(width, height) / factors.at(-1) > tileSize) factors.push(factors.at(-1) * 2);
+  return factors;
+}
+
+/**
  * Slices `source` into a static IIIF Image API 3.0 level 0 service in `outDir`.
  * libvips does the tiling; we then repair what it leaves out (see plan: spike findings).
  */
@@ -44,6 +54,7 @@ export async function slice({ source, outDir, id, tileSize = 512, quality = 85, 
     const info = JSON.parse(await readFile(join(tiles, 'info.json'), 'utf8'));
     info.id = id;
     info.extraFeatures = ['sizeByWh'];
+    info.tiles[0].scaleFactors = scaleFactors({ width: info.width, height: info.height, tileSize });
     // Whole-image renditions for thumbnails and previews. Viewers built on OpenSeadragon 4-5 read `sizes` as the
     // pyramid levels, so only real levels may be listed: the smaller ones here, deep zoom covers the rest.
     info.sizes = info.tiles[0].scaleFactors

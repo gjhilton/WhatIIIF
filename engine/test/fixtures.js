@@ -28,7 +28,7 @@ export async function makeVariant(kind, width = 700, height = 500) {
     grey: ['colourspace', base, out, 'b-w'],
   };
   if (kind === 'rgba') {
-    await run('vips', ['addalpha', base, out]);
+    await run('vips', ['bandjoin_const', base, out, '255']); // not `addalpha`, which libvips 8.15 lacks
   } else {
     await run('vips', steps[kind]);
   }
