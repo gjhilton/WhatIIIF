@@ -1,21 +1,20 @@
-import { marked } from 'marked';
-import { site } from '../site';
+import type { Site } from '../site';
 import { CopyField } from './CopyField';
 
-const rows = () => [
-  ...site.metadata.map(({ label, value }) => [label, value] as const),
-  ['Dimensions', `${site.width.toLocaleString()} × ${site.height.toLocaleString()} px`] as const,
-];
-
-export function Details() {
+export function Details({ site }: { site: Site }) {
   const { manifestUrl, infoUrl, fullUrl, originalUrl, description, attribution, rights } = site;
+  const rows = [
+    ...site.metadata.map(({ label, value }) => [label, value] as const),
+    ['Dimensions', `${site.width.toLocaleString()} × ${site.height.toLocaleString()} px`] as const,
+  ];
+
   return (
     <div className="details">
       <section>
-        {description && <div className="prose" dangerouslySetInnerHTML={{ __html: marked.parse(description) as string }} />}
+        {description && <div className="prose" dangerouslySetInnerHTML={{ __html: description }} />}
         <table className="meta">
           <tbody>
-            {rows().map(([label, value]) => (
+            {rows.map(([label, value]) => (
               <tr key={label}>
                 <th scope="row">{label}</th>
                 <td>{value}</td>

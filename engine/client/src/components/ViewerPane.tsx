@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { viewers } from '../viewers';
-import { site, type ViewerId } from '../site';
+import type { Site, ViewerId } from '../site';
 
 /** Mounts the chosen viewer adapter into a fresh container and tears it down on change. */
-export function ViewerPane({ viewer }: { viewer: ViewerId }) {
+export function ViewerPane({ site, viewer }: { site: Site; viewer: ViewerId }) {
   const host = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string>();
 
@@ -26,7 +26,7 @@ export function ViewerPane({ viewer }: { viewer: ViewerId }) {
       cancelled = true;
       teardown?.();
     };
-  }, [viewer]);
+  }, [site, viewer]);
 
   return (
     <div className="viewer" ref={host} role="region" aria-label="Image viewer">

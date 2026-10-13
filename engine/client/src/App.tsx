@@ -1,19 +1,19 @@
 import { useEffect, useState } from 'react';
-import { site, type ViewerId } from './site';
+import type { Site, ViewerId } from './site';
 import { viewers } from './viewers';
 import { ViewerPane } from './components/ViewerPane';
 import { Details } from './components/Details';
 
-const initialViewer = (): ViewerId => {
+const initialViewer = (site: Site): ViewerId => {
   const asked = new URLSearchParams(location.search).get('viewer');
   return asked && asked in viewers ? (asked as ViewerId) : site.viewer;
 };
 
-export function App() {
-  const [viewer, setViewer] = useState(initialViewer);
+export function App({ site }: { site: Site }) {
+  const [viewer, setViewer] = useState(() => initialViewer(site));
   useEffect(() => {
     document.title = site.title;
-  }, []);
+  }, [site]);
 
   const choose = (id: ViewerId) => {
     setViewer(id);
@@ -37,9 +37,9 @@ export function App() {
           ))}
         </div>
       </header>
-      <ViewerPane viewer={viewer} />
+      <ViewerPane site={site} viewer={viewer} />
       <main className="content">
-        <Details />
+        <Details site={site} />
       </main>
     </>
   );

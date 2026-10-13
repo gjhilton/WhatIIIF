@@ -34,6 +34,7 @@ a { color: var(--accent); }
 .viewer { position: relative; height: 72vh; min-height: 22rem; background: var(--viewer); }
 .viewer-surface { position: absolute; inset: 0; }
 .viewer-error { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; color: #f2b8a2; }
+.load-error { max-width: 40rem; margin: 4rem auto; padding: 0 16px; }
 
 /* A class, not the bare element: Mirador renders a <main> of its own inside the viewer. */
 .content { max-width: 72rem; margin: 0 auto; padding: 1.5rem 16px 4rem; }
