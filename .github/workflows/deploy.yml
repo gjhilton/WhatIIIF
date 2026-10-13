@@ -24,7 +24,7 @@ jobs:
     outputs:
       image: ${{ steps.look.outputs.image }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - id: look
         run: node engine/ci/has-image.js
 
@@ -36,10 +36,10 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           lfs: true # the source image is stored in Git LFS
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: engine/.node-version
           cache: npm
