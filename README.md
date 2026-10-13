@@ -16,7 +16,7 @@ OpenSeadragon (switchable to Mirador) and gives you two URLs to paste into any I
 - **Image service** – `…/iiif/image/info.json`
 
 Large images (over 100 MB) work: `.gitattributes` already sends images in `content/` through Git LFS.
-GitHub's free LFS quota is 1 GB storage and 1 GB bandwidth a month, and each build downloads the image once.
+GitHub's free plans include 10 GiB of LFS storage and 10 GiB of LFS bandwidth a month, and each build downloads the image once.
 
 ## Describe it (optional)
 
