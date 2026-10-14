@@ -89,4 +89,6 @@ requests**. It never touches your `content` folder.
 
 ---
 
-Working on whatiiif itself? See [DEVELOPING.md](DEVELOPING.md). MIT licence © g.j.hilton.
+Made by [Funeral Games](https://funeralgames.co.uk). MIT licence © g.j.hilton.
+
+Working on whatiiif itself? See [DEVELOPING.md](DEVELOPING.md).
