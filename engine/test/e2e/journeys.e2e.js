@@ -350,9 +350,21 @@ suite('a visitor shares the part of the picture they have zoomed into', () => {
     const first = await open(site, '?viewer=openseadragon');
     assert.equal(new URL(first.page.url()).hash, '', 'the whole picture needs no fragment');
     await zoomToFullResolution(first);
-    await until(() => /^#xywh=\d+,\d+,\d+,\d+$/.test(new URL(first.page.url()).hash), 'the view in the address');
+    // Zoom in as far as OpenSeadragon goes (about 1090 image pixels across this 1200-pixel pane), so whoever opens the
+    // link needs full-resolution tiles. The address follows a zoom only once its animation has finished, so stop
+    // scrolling and wait for it to settle.
+    for (let notch = 0; notch < 15; notch++) await first.page.mouse.wheel(0, -300);
+    let settled = '';
+    await until(async () => {
+      const before = first.page.url();
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      settled = first.page.url();
+      return settled === before && new URL(settled).hash !== '';
+    }, 'the view to settle in the address');
+    assert.match(new URL(settled).hash, /^#xywh=\d+,\d+,(\d+),\d+$/);
+    assert.ok(Number(new URL(settled).hash.split(',')[2]) <= 1200, `${new URL(settled).hash} is no wider than the pane`);
     const link = await linkToView(first.page);
-    assert.equal(new URL(link).hash, new URL(first.page.url()).hash);
+    assert.equal(new URL(link).hash, new URL(settled).hash);
     assert.ok(link.startsWith(`${site.baseUrl}/?`), link);
     const [x, y, w, h] = new URL(link).hash.slice('#xywh='.length).split(',').map(Number);
     await first.close();
