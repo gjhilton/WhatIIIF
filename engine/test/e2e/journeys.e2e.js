@@ -206,8 +206,7 @@ suite('a photographer uploads a phone photo on github.com and fills in every set
     await blog.page.mouse.wheel(0, 300);
     await until(() => blog.page.evaluate(() => scrollY > 0), 'the post to scroll');
     assert.ok(await frame.locator('.openseadragon-cooperative-overlay').textContent(), 'a hint says how to zoom');
-    await blog.page.evaluate(() => scrollTo(0, 0));
-    await zoomToFullResolution(blog, { holding: 'Control', within: frame });
+
     assert.equal(await frame.locator('.masthead').count(), 0, 'no header');
     assert.equal(await frame.locator('.details').count(), 0, 'no details');
     assert.deepEqual(await frame.locator('.credit span').allTextContents(), ['Harbour at dusk', 'Example Museum']);
@@ -216,6 +215,11 @@ suite('a photographer uploads a phone photo on github.com and fills in every set
     assert.equal(await back.getAttribute('target'), '_blank');
     const pane = await frame.locator('.viewer').boundingBox();
     assert.ok(pane.width > 790 && pane.height > 520, `the viewer fills the frame (${pane.width}x${pane.height})`);
+
+    // Holding Ctrl, they zoom in; the link back then opens the full page on what they zoomed into.
+    await blog.page.evaluate(() => scrollTo(0, 0));
+    await zoomToFullResolution(blog, { holding: 'Control', within: frame });
+    await until(async () => /#xywh=\d+,\d+,\d+,\d+$/.test(await back.getAttribute('href')), 'the link back to follow the view');
     assert.deepEqual(blog.problems, []);
     await blog.close();
   });

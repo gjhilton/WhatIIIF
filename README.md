@@ -9,6 +9,34 @@ that museum and library viewers such as Mirador and Universal Viewer read.
 
 You need a free GitHub account. Everything below happens in your web browser.
 
+## What you get
+
+For people looking at your picture:
+
+- Zoom from the whole picture down to every pixel, in [OpenSeadragon](https://openseadragon.github.io) or
+  [Mirador](https://projectmirador.org); they can switch between the two.
+- A link to exactly the part they have zoomed into, to share.
+- Code to put the zoomable picture into a blog post or another website. It fits narrow screens, and lets readers
+  scroll on past it.
+- Downloads of the full-size JPEG and of the file you uploaded, each with its size.
+- Your texts in every language you write them in. Visitors see their own and can switch.
+- A light page, or a dark one if their computer is set to dark mode. It works on phones, and shows the picture
+  without JavaScript.
+- Alternative text for people who cannot see the picture.
+- Links shared on social media and in chat apps show the picture, its title and summary.
+
+For you:
+
+- No server and no cost: GitHub builds the site and hosts it.
+- Upload a TIFF, PNG or JPEG of up to 2 GB in the browser ([Large pictures](#large-pictures) shows how). The site
+  is made to fit within what GitHub Pages allows.
+- Photos are turned the right way up and their colours kept true. The camera and location details are left out.
+- A title, summary, credit, licence and any other details you like, and a description that can link to parts of the
+  picture.
+- Your own colours, if you want them.
+- Mistakes are explained in a sentence on the page of the run that found them.
+- Improvements arrive as a pull request to merge. Your picture and settings are never touched.
+
 ## Make your site
 
 1. **Copy this template.** At the top of this page click **Use this template → Create a new repository**.
