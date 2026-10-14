@@ -20,7 +20,7 @@ before(async () => {
 });
 after(() => browser?.close());
 
-const open = (site, query) => browse(browser, { siteUrl: site.baseUrl, query, fileFor: (path) => join(site.dist, path) });
+const open = (site, query, options) => browse(browser, { siteUrl: site.baseUrl, query, fileFor: (path) => join(site.dist, path), ...options });
 
 test('a fresh copy of the template has nothing to publish yet, and says so instead of failing', async () => {
   const site = await deploy(await templateCopy());
@@ -101,6 +101,7 @@ suite('a photographer uploads a phone photo on github.com and fills in every set
       ['Attribution', 'Example Museum'],
       ['Rights', 'http://creativecommons.org/licenses/by/4.0/'],
     ]);
+    assert.equal(await page.getByRole('group', { name: 'Language' }).count(), 0, 'one language, so no switch');
     assert.deepEqual(problems, []);
     await close();
   });
@@ -155,6 +156,96 @@ suite('a photographer uploads a phone photo on github.com and fills in every set
   });
 });
 
+suite('a Welsh archive publishes its image in Welsh and English', () => {
+  let site;
+
+  before(async () => {
+    const repo = await templateCopy();
+    await copyFile(await makeImage(1600, 1200), join(repo, 'content/harbwr.tif'));
+    await writeFile(
+      join(repo, 'content/whatiiif.toml'),
+      [
+        'language = "cy"',
+        'title = { cy = "Harbwr", en = "Harbour" }',
+        'summary = { cy = "Y llongau pysgota yn dod adref.", en = "The fishing fleet coming home." }',
+        'attribution = "Archifau Enghraifft"',
+        '',
+        '[[metadata]]',
+        'label = { cy = "Dyddiad", en = "Date" }',
+        'value = "1890"',
+      ].join('\n'),
+    );
+    await writeFile(join(repo, 'content/description.md'), 'Golygfa o\'r *pier*.\n');
+    await writeFile(join(repo, 'content/description.en.md'), 'Seen from the *pier*.\n');
+    await commit(repo, 'Add the image');
+    site = await deploy(repo);
+  });
+
+  test('the manifest gives each text in both languages', async () => {
+    assert.equal(site.built, true, site.log);
+    const manifest = await json(join(site.dist, 'iiif/manifest.json'));
+    assert.deepEqual(manifest.label, { cy: ['Harbwr'], en: ['Harbour'] });
+    assert.deepEqual(manifest.metadata, [{ label: { cy: ['Dyddiad'], en: ['Date'] }, value: { cy: ['1890'] } }]);
+  });
+
+  test('the bilingual manifest is valid IIIF Presentation 3.0', { skip: schemaUnavailable }, async () => {
+    assert.deepEqual(schemaProblems(await json(join(site.dist, 'iiif/manifest.json'))), []);
+  });
+
+  // What the page shows, as [element, its text, its lang attribute], for a browser that prefers `locale`.
+  const shown = async (options) => {
+    const { page, problems, close } = await open(site, '', options);
+    await page.locator('h1').waitFor();
+    const read = (selector) => page.locator(selector).first().evaluate((el) => [el.textContent, el.closest('[lang]')?.getAttribute('lang')]);
+    const result = {
+      title: await read('h1'),
+      summary: await read('.masthead p'),
+      description: await read('.prose p'),
+      firstRow: await read('.meta th'),
+      pageTitle: await page.title(),
+    };
+    assert.deepEqual(problems, []);
+    await close();
+    return result;
+  };
+
+  test('a visitor whose browser prefers Welsh reads Welsh, marked as Welsh', async () => {
+    assert.deepEqual(await shown({ locale: 'cy-GB' }), {
+      title: ['Harbwr', 'cy'],
+      summary: ['Y llongau pysgota yn dod adref.', 'cy'],
+      description: ["Golygfa o'r pier.", 'cy'],
+      firstRow: ['Dyddiad', 'cy'],
+      pageTitle: 'Harbwr',
+    });
+  });
+
+  test('a visitor whose browser prefers English reads English, and Welsh where there is no English', async () => {
+    const english = await shown({ locale: 'en-GB' });
+    assert.deepEqual(english.title, ['Harbour', 'en']);
+    assert.deepEqual(english.description, ['Seen from the pier.', 'en']);
+    const { page, close } = await open(site, '', { locale: 'en-GB' });
+    await page.locator('h1').waitFor();
+    const attribution = page.locator('.meta tr', { hasText: 'Attribution' }).locator('td');
+    assert.deepEqual(await attribution.evaluate((el) => [el.textContent, el.getAttribute('lang')]), ['Archifau Enghraifft', 'cy']);
+    await close();
+  });
+
+  test('the language switch changes the page, and the address remembers the choice', async () => {
+    const { page, close } = await open(site, '', { locale: 'en-GB' });
+    // Each language is offered under its own name for itself, as far as the browser knows it, Welsh first as the site's own.
+    const switcher = page.getByRole('group', { name: 'Language' });
+    const ownName = (tag) => page.evaluate((t) => new Intl.DisplayNames([t], { type: 'language' }).of(t), tag);
+    assert.deepEqual(await switcher.getByRole('button').evaluateAll((buttons) => buttons.map((b) => b.lang)), ['cy', 'en']);
+    assert.deepEqual(await switcher.getByRole('button').allTextContents(), [await ownName('cy'), await ownName('en')]);
+    await switcher.locator('button[lang="cy"]').click();
+    assert.equal(await page.locator('h1').textContent(), 'Harbwr');
+    assert.equal(new URL(page.url()).searchParams.get('lang'), 'cy');
+    await close();
+
+    assert.deepEqual((await shown({ locale: 'en-GB', query: '?lang=cy' })).title, ['Harbwr', 'cy']);
+  });
+});
+
 const lfs = await run('git', ['lfs', 'version']).then(({ code }) => code === 0, () => false);
 
 suite('an archive commits a 16-bit scan through Git LFS and changes no settings', { skip: !lfs && 'git-lfs is not installed' }, () => {
@@ -201,7 +292,7 @@ suite('an archive commits a 16-bit scan through Git LFS and changes no settings'
 
     assert.equal(again.built, true, again.log);
     const { title, width, height } = await json(join(again.dist, 'site.json'));
-    assert.deepEqual({ title, width, height }, { title: 'postcard', width: 300, height: 200 });
+    assert.deepEqual({ title, width, height }, { title: { en: 'postcard' }, width: 300, height: 200 });
     assert.deepEqual(await readdir(join(again.dist, 'iiif/image')), ['full', 'info.json']); // one tile: the whole image
 
     const opened = await open(again);
@@ -226,7 +317,7 @@ const mistakes = [
   {
     name: 'misspells a setting',
     files: { 'a.png': 'x', 'whatiiif.toml': 'titel = "Harbour"' },
-    says: /Build failed: content\/whatiiif\.toml: unknown setting "titel"\. Valid settings here: title, summary/,
+    says: /Build failed: content\/whatiiif\.toml: unknown setting "titel"\. Valid settings here: language, title, summary/,
   },
   {
     name: 'leaves the settings file half-written',

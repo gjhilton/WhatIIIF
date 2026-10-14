@@ -3,7 +3,7 @@ import { viewers } from '../viewers';
 import type { Site, ViewerId } from '../site';
 
 /** Mounts the chosen viewer adapter into a fresh container and tears it down on change. */
-export function ViewerPane({ site, viewer }: { site: Site; viewer: ViewerId }) {
+export function ViewerPane({ site, viewer, language }: { site: Site; viewer: ViewerId; language: string }) {
   const host = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string>();
 
@@ -18,7 +18,7 @@ export function ViewerPane({ site, viewer }: { site: Site; viewer: ViewerId }) {
     viewers[viewer]
       .load()
       .then((adapter) => {
-        if (!cancelled) teardown = adapter.mount(el, site);
+        if (!cancelled) teardown = adapter.mount(el, site, { language });
       })
       .catch((e: Error) => setError(`Could not load ${viewers[viewer].label}: ${e.message}`));
 
@@ -26,7 +26,7 @@ export function ViewerPane({ site, viewer }: { site: Site; viewer: ViewerId }) {
       cancelled = true;
       teardown?.();
     };
-  }, [site, viewer]);
+  }, [site, viewer, language]);
 
   return (
     <div className="viewer" ref={host} role="region" aria-label="Image viewer">

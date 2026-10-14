@@ -88,8 +88,13 @@ const TYPES = {
  * With `fileFor`, every request is answered with the file it names, so no web server is needed; without
  * it the site is fetched over the network, as a visitor would.
  */
-export async function browse(browser, { siteUrl, fileFor, query = '' }) {
-  const context = await browser.newContext({ viewport: { width: 1200, height: 900 }, permissions: ['clipboard-read', 'clipboard-write'] });
+export async function browse(browser, { siteUrl, fileFor, query = '', locale = 'en-GB', javaScriptEnabled = true }) {
+  const context = await browser.newContext({
+    viewport: { width: 1200, height: 900 },
+    permissions: ['clipboard-read', 'clipboard-write'],
+    locale,
+    javaScriptEnabled,
+  });
   const page = await context.newPage();
   const fetched = [];
   const problems = [];

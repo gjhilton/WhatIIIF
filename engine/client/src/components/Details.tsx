@@ -1,29 +1,34 @@
 import type { Site } from '../site';
+import { inLanguage } from '../language';
 import { CopyField } from './CopyField';
 
-export function Details({ site }: { site: Site }) {
-  const { manifestUrl, infoUrl, fullUrl, originalUrl, description, attribution, rights } = site;
-  const rows = [
-    ...site.metadata.map(({ label, value }) => [label, value] as const),
-    ['Dimensions', `${site.width.toLocaleString()} × ${site.height.toLocaleString()} px`] as const,
+export function Details({ site, language }: { site: Site; language: string }) {
+  const { manifestUrl, infoUrl, fullUrl, originalUrl, rights } = site;
+  const words = (text: Site['title']) => inLanguage(text, language, site);
+  const description = site.description && words(site.description);
+  const attribution = site.attribution && words(site.attribution);
+  // [label, value], each with the language it is in; our own label and the dimensions need none
+  const rows: { text: string; lang?: string }[][] = [
+    ...site.metadata.map(({ label, value }) => [words(label), words(value)]),
+    [{ text: 'Dimensions' }, { text: `${site.width.toLocaleString()} × ${site.height.toLocaleString()} px` }],
   ];
 
   return (
     <div className="details">
       <section>
-        {description && <div className="prose" dangerouslySetInnerHTML={{ __html: description }} />}
+        {description && <div className="prose" lang={description.lang} dangerouslySetInnerHTML={{ __html: description.text }} />}
         <table className="meta">
           <tbody>
             {rows.map(([label, value]) => (
-              <tr key={label}>
-                <th scope="row">{label}</th>
-                <td>{value}</td>
+              <tr key={label.text}>
+                <th scope="row" lang={label.lang}>{label.text}</th>
+                <td lang={value.lang}>{value.text}</td>
               </tr>
             ))}
             {attribution && (
               <tr>
                 <th scope="row">Attribution</th>
-                <td>{attribution}</td>
+                <td lang={attribution.lang}>{attribution.text}</td>
               </tr>
             )}
             {rights && (

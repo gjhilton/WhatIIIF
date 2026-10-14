@@ -14,7 +14,7 @@ const base = {
   manifestId: 'https://example.org/site/iiif/manifest.json',
   imageId: 'https://example.org/site/iiif/image',
   info,
-  config: { title: 'Harbour', metadata: [] },
+  config: { title: { en: 'Harbour' }, metadata: [] },
   hasFull: true,
 };
 const painting = (m) => m.items[0].items[0].items[0];
@@ -54,11 +54,11 @@ test('carries summary, attribution, rights and metadata when configured', () => 
   const m = buildManifest({
     ...base,
     config: {
-      title: 'Harbour',
-      summary: 'A view.',
-      attribution: 'Example Museum',
+      title: { en: 'Harbour' },
+      summary: { en: 'A view.' },
+      attribution: { en: 'Example Museum' },
       rights: 'https://creativecommons.org/licenses/by/4.0/',
-      metadata: [{ label: 'Date', value: '1890' }],
+      metadata: [{ label: { en: 'Date' }, value: { en: '1890' } }],
     },
   });
   assert.deepEqual(m.summary, { en: ['A view.'] });
@@ -79,4 +79,20 @@ test('links the original file as a rendering when its URL is known', () => {
   assert.deepEqual(m.rendering, [
     { id: 'https://media.githubusercontent.com/media/o/r/main/content/a.tif', type: 'Image', label: { en: ['Original file'] } },
   ]);
+});
+
+test('gives every text in each language it was written in, and our own words in English', () => {
+  const m = buildManifest({
+    ...base,
+    originalUrl: 'https://raw.githubusercontent.com/o/r/main/content/a.tif',
+    config: {
+      title: { cy: 'Harbwr', en: 'Harbour' },
+      attribution: { cy: 'Amgueddfa' },
+      metadata: [{ label: { cy: 'Dyddiad', en: 'Date' }, value: { none: '1890' } }],
+    },
+  });
+  assert.deepEqual(m.label, { cy: ['Harbwr'], en: ['Harbour'] });
+  assert.deepEqual(m.requiredStatement, { label: { en: ['Attribution'] }, value: { cy: ['Amgueddfa'] } });
+  assert.deepEqual(m.metadata, [{ label: { cy: ['Dyddiad'], en: ['Date'] }, value: { none: ['1890'] } }]);
+  assert.deepEqual(m.rendering[0].label, { en: ['Original file'] });
 });

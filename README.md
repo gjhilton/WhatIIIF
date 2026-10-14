@@ -22,6 +22,9 @@ GitHub's free plans include 10 GiB of LFS storage and 10 GiB of LFS bandwidth a 
 
 Edit `content/whatiiif.toml` (every setting is commented there) for title, attribution, rights,
 extra metadata and viewer choice. Add `content/description.md` for longer text shown on the page.
+Any text can be written in several languages, `title = { en = "Harbour", cy = "Harbwr" }`, with `language` naming the
+language of plain ones; put other languages' descriptions in `description.cy.md` and so on. Visitors read their
+browser's language where you have given it, and the page offers a switch between the languages you used.
 `rights` takes a Creative Commons or RightsStatements.org URL, the only kinds IIIF viewers recognise;
 put any other terms in `attribution`.
 

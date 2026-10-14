@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Site, ViewerId } from './site';
+import { chooseLanguage, inLanguage, languageName } from './language';
 import { viewers } from './viewers';
 import { ViewerPane } from './components/ViewerPane';
 import { Details } from './components/Details';
@@ -9,37 +10,51 @@ const initialViewer = (site: Site): ViewerId => {
   return asked && asked in viewers ? (asked as ViewerId) : site.viewer;
 };
 
+/** Keeps a choice in the address, so a copied link opens the page the same way. */
+const remember = (key: string, value: string) => {
+  const url = new URL(location.href);
+  url.searchParams.set(key, value);
+  history.replaceState(null, '', url);
+};
+
 export function App({ site }: { site: Site }) {
   const [viewer, setViewer] = useState(() => initialViewer(site));
+  const [language, setLanguage] = useState(() => chooseLanguage(site));
+  const title = inLanguage(site.title, language, site);
+  const summary = site.summary && inLanguage(site.summary, language, site);
   useEffect(() => {
-    document.title = site.title;
-  }, [site]);
-
-  const choose = (id: ViewerId) => {
-    setViewer(id);
-    const url = new URL(location.href);
-    url.searchParams.set('viewer', id);
-    history.replaceState(null, '', url);
-  };
+    document.title = title.text;
+  }, [title.text]);
 
   return (
     <>
       <header className="masthead">
         <div>
-          <h1>{site.title}</h1>
-          {site.summary && <p>{site.summary}</p>}
+          <h1 lang={title.lang}>{title.text}</h1>
+          {summary && <p lang={summary.lang}>{summary.text}</p>}
         </div>
-        <div className="toggle" role="group" aria-label="Viewer">
-          {(Object.keys(viewers) as ViewerId[]).map((id) => (
-            <button key={id} type="button" aria-pressed={id === viewer} onClick={() => choose(id)}>
-              {viewers[id].label}
-            </button>
-          ))}
+        <div className="controls">
+          {site.languages.length > 1 && (
+            <div className="toggle" role="group" aria-label="Language">
+              {site.languages.map((tag) => (
+                <button key={tag} type="button" lang={tag} aria-pressed={tag === language} onClick={() => (setLanguage(tag), remember('lang', tag))}>
+                  {languageName(tag)}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="toggle" role="group" aria-label="Viewer">
+            {(Object.keys(viewers) as ViewerId[]).map((id) => (
+              <button key={id} type="button" aria-pressed={id === viewer} onClick={() => (setViewer(id), remember('viewer', id))}>
+                {viewers[id].label}
+              </button>
+            ))}
+          </div>
         </div>
       </header>
-      <ViewerPane site={site} viewer={viewer} />
+      <ViewerPane site={site} viewer={viewer} language={language} />
       <main className="content">
-        <Details site={site} />
+        <Details site={site} language={language} />
       </main>
     </>
   );
