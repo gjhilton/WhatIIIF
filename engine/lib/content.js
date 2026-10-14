@@ -119,7 +119,7 @@ export async function readContent(dir, { fetch = globalThis.fetch, downloads } =
   const title = settings.title ?? { [settings.language]: basename(image.name, extname(image.name)) };
   const config = { ...settings, title, alt: settings.alt ?? title };
   const description = await descriptions(dir, files, config.language);
-  const { summary, attribution, alt, metadata } = config;
-  const texts = [title, summary, attribution, alt, description, ...metadata.flatMap(({ label, value }) => [label, value])];
+  const { summary, creator, date, attribution, alt, metadata } = config;
+  const texts = [title, summary, creator, date, attribution, alt, description, ...metadata.flatMap(({ label, value }) => [label, value])];
   return { image, config, description, languages: languagesOf(config.language, texts), notes: unused(files, pictures, image) };
 }

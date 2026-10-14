@@ -237,3 +237,22 @@ test('a picture too big for GitHub Pages at any quality stops the build, saying 
     /The picture is too big for GitHub Pages: its tiles take [\d.]+ MB even at quality 45, and [\d.]+ MB fit\. Make it smaller: about \d+% of its width and height would fit\./,
   );
 });
+
+test('the page is told who made the picture, when, and how big it is', async () => {
+  const { content, out } = await setup('creator = "J. M. W. Turner"\ndate = { de = "um 1890" }\ndimensions = "120 × 90 cm"');
+  const warnings = [];
+  await build({ contentDir: content, outDir: out, env: {}, warn: (message) => warnings.push(message) });
+  const site = await read(join(out, 'site.json'));
+  assert.deepEqual([site.creator, site.date, site.dimensions], [{ en: 'J. M. W. Turner' }, { de: 'um 1890' }, { width: 120, height: 90, unit: 'cm', text: '120 × 90 cm' }]);
+  assert.deepEqual(site.languages, ['en', 'de']);
+  assert.deepEqual(warnings, []);
+});
+
+test('dimensions that are not the shape of the picture are worth a look', async () => {
+  const { content, out } = await setup('dimensions = "120 × 80 cm"'); // the picture is 2000 x 1500, 4:3
+  const warnings = [];
+  await build({ contentDir: content, outDir: out, env: {}, warn: (message) => warnings.push(message) });
+  assert.deepEqual(warnings, [
+    'The dimensions, 120 × 80 cm, are not the shape of the picture, 2,000 × 1,500 pixels: is one of them wrong, or the picture cropped? Measurements follow the width.',
+  ]);
+});

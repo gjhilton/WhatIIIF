@@ -115,6 +115,9 @@ test('gives every text in each language it was written in, and our own words in 
 const everySetting = `
 language = "cy"
 title = { cy = "Harbwr", en = "Harbour" }
+creator = "Anhysbys"
+date = "1890"
+dimensions = "120 × 80 cm"
 summary = "A view."
 attribution = "Example Museum"
 rights = "https://creativecommons.org/licenses/by/4.0/"
@@ -141,3 +144,34 @@ for (const [name, { toml = '', ...overrides }] of Object.entries(cases)) {
     assert.deepEqual(schemaProblems(buildManifest({ ...base, config, ...overrides })), []);
   });
 }
+
+test('who made it, when, and how big it is lead the metadata, under labels of our own', () => {
+  const m = buildManifest({
+    ...base,
+    config: {
+      title: { en: 'Harbour' },
+      creator: { en: 'J. M. W. Turner' },
+      date: { cy: 'tua 1890' },
+      dimensions: { width: 120, height: 80, unit: 'cm', text: '120 × 80 cm' },
+      metadata: [{ label: { en: 'Medium' }, value: { en: 'Oil on canvas' } }],
+    },
+  });
+  assert.deepEqual(m.metadata, [
+    { label: { en: ['Creator'] }, value: { en: ['J. M. W. Turner'] } },
+    { label: { en: ['Date'] }, value: { cy: ['tua 1890'] } },
+    { label: { en: ['Dimensions'] }, value: { none: ['120 × 80 cm'] } },
+    { label: { en: ['Medium'] }, value: { en: ['Oil on canvas'] } },
+  ]);
+});
+
+test('the canvas says how big the original is, as IIIF\'s physical dimensions service', () => {
+  const { width } = base.info;
+  for (const [unit, scale, as] of [['cm', 120 / width, 'cm'], ['m', (1.2 * 100) / width, 'cm'], ['in', 47 / width, 'in']]) {
+    const size = { cm: 120, m: 1.2, in: 47 }[unit];
+    const m = buildManifest({ ...base, config: { ...base.config, dimensions: { width: size, height: 1, unit, text: '' } } });
+    assert.deepEqual(m.items[0].service, [
+      { id: `${m.items[0].id}/physdim`, type: 'PhysicalDimensions', profile: 'http://iiif.io/api/annex/services/physdim', physicalScale: scale, physicalUnits: as },
+    ]);
+  }
+  assert.equal('service' in buildManifest(base).items[0], false);
+});

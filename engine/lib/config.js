@@ -11,7 +11,7 @@ const TILE_SIZES = [64, 4096];
 
 // The settings each part of the file may hold.
 const SETTINGS = {
-  '': ['language', 'title', 'summary', 'attribution', 'alt', 'rights', 'picture', 'viewer', 'base_url', 'metadata', 'tiles', 'publish', 'colours'],
+  '': ['language', 'title', 'summary', 'creator', 'date', 'attribution', 'alt', 'rights', 'dimensions', 'picture', 'viewer', 'base_url', 'metadata', 'tiles', 'publish', 'colours'],
   tiles: ['size', 'quality'],
   publish: ['full', 'original'],
   metadata: ['label', 'value'],
@@ -147,6 +147,21 @@ function webAddress(value, setting, example, otherwise = '') {
   return value.replace(/\/+$/, '');
 }
 
+// The original's width and height, the unit after the second: 120 × 80 cm, 420mm x 297mm, 47,5 x 31,25 in.
+const DIMENSIONS = /^\s*(\d+(?:[.,]\d+)?)\s*(mm|cm|m|in)?\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*(mm|cm|m|in)\s*$/i;
+
+/** How big the original is, which gives the picture a scale: `{ width, height, unit, text }`. */
+function dimensions(value) {
+  if (value === undefined) return undefined;
+  const match = typeof value === 'string' && DIMENSIONS.exec(value);
+  const number = (digits) => Number(digits.replace(',', '.'));
+  const [width, height, unit] = match ? [number(match[1]), number(match[3]), match[4].toLowerCase()] : [];
+  if (!match || !(width > 0 && height > 0) || (match[2] && match[2].toLowerCase() !== unit)) {
+    fail(`"dimensions" must be the width and height of the original, such as "120 × 80 cm", in mm, cm, m or in (got ${written(value)})`);
+  }
+  return { width, height, unit, text: `${width} × ${height} ${unit}` };
+}
+
 function wholeNumber(value, setting, [min, max]) {
   if (!Number.isInteger(value) || value < min || value > max) {
     fail(`"${setting}" must be a whole number from ${min} to ${max} (got ${written(value)})`);
@@ -194,9 +209,12 @@ export function parseConfig(toml) {
     language,
     title: text(raw.title, 'title', language),
     summary: text(raw.summary, 'summary', language),
+    creator: text(raw.creator, 'creator', language),
+    date: text(raw.date, 'date', language),
     attribution: text(raw.attribution, 'attribution', language),
     alt: text(raw.alt, 'alt', language),
     rights: rights(raw.rights),
+    dimensions: dimensions(raw.dimensions),
     picture: webAddress(raw.picture, 'picture', 'the web address of a picture, starting https://', '. A picture in content/ needs no setting.'),
     viewer,
     base_url: webAddress(raw.base_url, 'base_url', 'a URL such as https://example.org/my-image'),

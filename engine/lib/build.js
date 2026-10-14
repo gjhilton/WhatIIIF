@@ -66,6 +66,11 @@ export async function build({ contentDir, outDir, env = process.env, log = () =>
     }
     if (droppedFull) warn('The site would have been too big for GitHub Pages, so the full-size JPEG was left out.');
     if (quality < asked) warn(`The tiles were too big for GitHub Pages at quality ${asked}, so they were made at quality ${quality}.`);
+    const { dimensions } = config;
+    if (dimensions && Math.abs(dimensions.width / dimensions.height / (info.width / info.height) - 1) > 0.05) {
+      const pixels = `${info.width.toLocaleString('en-GB')} × ${info.height.toLocaleString('en-GB')} pixels`;
+      warn(`The dimensions, ${dimensions.text}, are not the shape of the picture, ${pixels}: is one of them wrong, or the picture cropped? Measurements follow the width.`);
+    }
 
     const missing = await missingFiles(imageDir);
     if (missing.length) {
@@ -82,9 +87,12 @@ export async function build({ contentDir, outDir, env = process.env, log = () =>
       languages,
       title: config.title,
       summary: config.summary,
+      creator: config.creator,
+      date: config.date,
       attribution: config.attribution,
       alt: config.alt,
       rights: config.rights,
+      dimensions: config.dimensions,
       metadata: config.metadata,
       description,
       viewer: config.viewer,
