@@ -46,6 +46,24 @@ for (const [viewer, label] of [['openseadragon', 'OpenSeadragon'], ['mirador', '
   });
 }
 
+test('a shared link shows a picture that is published', async () => {
+  const html = dist ? await readFile(join(dist, 'index.html'), 'utf8') : await (await fetch(`${siteUrl}/`)).text();
+  const picture = html.match(/<meta property="og:image" content="([^"]+)">/)?.[1];
+  assert.ok(picture?.startsWith(`${siteUrl}/`), `og:image is ${picture}`);
+  assert.equal(await published(picture.slice(siteUrl.length + 1)), true);
+});
+
+test('without JavaScript the page shows the picture, with alt text', async () => {
+  const { page, problems, close } = await browse(browser, { siteUrl, fileFor, javaScriptEnabled: false });
+  const picture = page.locator('.fallback img');
+  await picture.waitFor();
+  await page.waitForLoadState('networkidle');
+  assert.ok((await picture.getAttribute('alt'))?.trim(), 'the picture is described');
+  assert.equal(await picture.evaluate((img) => img.complete && img.naturalWidth > 0), true, 'the picture loads');
+  assert.deepEqual(problems, []);
+  await close();
+});
+
 test('the image service is where it says it is, with every file a viewer could ask for', async () => {
   const info = await json('iiif/image/info.json');
   assert.equal(info.id, `${siteUrl}/iiif/image`);

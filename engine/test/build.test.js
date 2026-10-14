@@ -88,3 +88,17 @@ test('tells the page every language its texts are in, the site language first, w
   assert.deepEqual(site.alt, { en: 'Harbour', cy: 'Harbwr' });
   assert.deepEqual(site.description, { cy: '<p>Golygfa</p>\n', en: '<p>A view</p>\n' });
 });
+
+test('personalises the built page: a social card showing a published picture, and a fallback without JavaScript', async () => {
+  const { content, out } = await setup('title = "Harbour"\nalt = "Fishing boats at dusk"');
+  // What Vite leaves in the output folder before the engine runs.
+  await writeFile(join(out, 'index.html'), '<head><!-- whatiiif:head --><title>whatiiif</title><!-- /whatiiif:head --></head><body><!-- whatiiif:body --><!-- /whatiiif:body --></body>');
+  await build({ contentDir: content, outDir: out, env: { SITE_BASE_URL: 'https://example.org/site' } });
+
+  assert.equal((await read(join(out, 'site.json'))).pageUrl, 'https://example.org/site/');
+  const html = await readFile(join(out, 'index.html'), 'utf8');
+  const card = html.match(/<meta property="og:image" content="https:\/\/example\.org\/site\/(iiif\/image\/full\/[^"]+)">/);
+  assert.ok(card, 'the card picture is an absolute address on the site');
+  assert.deepEqual(await readdir(join(out, card[1], '..')), ['default.jpg'], 'and that file is published');
+  assert.ok(html.includes('alt="Fishing boats at dusk"'));
+});

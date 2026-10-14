@@ -5,6 +5,7 @@
 # title = "My image"            # defaults to the image file name
 # summary = "One line shown under the title."
 # attribution = "Credit line, e.g. Example Museum"
+# alt = "What the picture shows, for people who cannot see it"   # defaults to the title
 # rights = "https://creativecommons.org/licenses/by/4.0/"   # a Creative Commons or RightsStatements.org URL
 # viewer = "openseadragon"      # or "mirador"; visitors can switch on the page
 # base_url = "https://my-domain.example"   # only for a custom domain

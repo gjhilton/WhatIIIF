@@ -21,7 +21,7 @@ GitHub's free plans include 10 GiB of LFS storage and 10 GiB of LFS bandwidth a 
 ## Describe it (optional)
 
 Edit `content/whatiiif.toml` (every setting is commented there) for title, attribution, rights,
-extra metadata and viewer choice. Add `content/description.md` for longer text shown on the page.
+extra metadata and viewer choice, and `alt`: a description of the picture for people who cannot see it. Add `content/description.md` for longer text shown on the page.
 Any text can be written in several languages, `title = { en = "Harbour", cy = "Harbwr" }`, with `language` naming the
 language of plain ones; put other languages' descriptions in `description.cy.md` and so on. Visitors read their
 browser's language where you have given it, and the page offers a switch between the languages you used.
@@ -34,6 +34,8 @@ IIIF Image API 3.0 level 0 tiles (JPEG, sRGB), small whole-image sizes, a full-s
 Photos are turned upright if the camera only recorded their rotation, and colours are converted to sRGB using the
 image's embedded colour profile, so wide-gamut and CMYK originals look the same at every zoom level. What the camera
 wrote into the file (its model, the time, where the photo was taken) is not published.
+The page's address works when shared: social sites and chat apps show the title, summary and picture. Without
+JavaScript the page still shows the picture, its description and its links.
 The original file is **not** copied to the site; the manifest links to it in your repository. If the site would exceed
 GitHub Pages' size limit, the full-size JPEG is dropped first. Set `publish.full = false` to skip it.
 

@@ -8,6 +8,7 @@ import { applyBudget } from './budget.js';
 import { validate } from './validate.js';
 import { buildManifest } from './manifest.js';
 import { originalUrl, committedToLfs } from './original.js';
+import { cardImage, personalisePage } from './page.js';
 
 const LOCAL_BASE_URL = 'http://localhost:4173';
 
@@ -33,7 +34,8 @@ function languagesOf(language, texts) {
 
 /**
  * Turns the committed content into everything in `outDir` that depends on it: the IIIF image service and
- * manifest under iiif/, and site.json, which the preview page loads when it opens.
+ * manifest under iiif/, site.json, which the preview page loads when it opens, and, if the page has been
+ * built already, its title, social-card tags and the fallback shown without JavaScript.
  */
 export async function build({ contentDir, outDir, env = process.env, log = () => {} }) {
   const source = await findSourceImage(contentDir);
@@ -86,8 +88,10 @@ export async function build({ contentDir, outDir, env = process.env, log = () =>
     originalUrl: original,
     width: info.width,
     height: info.height,
+    pageUrl: `${baseUrl}/`,
   };
   await writeFile(join(outDir, 'site.json'), JSON.stringify(site, null, 2));
+  await personalisePage(join(outDir, 'index.html'), { site, image: cardImage({ info, imageId }) });
 
   log(`Done: ${Math.round(bytes / 1024 / 1024)} MB of IIIF files at ${baseUrl}/iiif/`);
   return { baseUrl, manifestId, bytes, droppedFull };

@@ -40,6 +40,7 @@ suite('a photographer uploads a phone photo on github.com and fills in every set
         'title = "Harbour at dusk"',
         'summary = "The fishing fleet coming in."',
         'attribution = "Example Museum"',
+        'alt = "Fishing boats coming into the harbour at dusk"',
         'rights = "https://creativecommons.org/licenses/by/4.0/"',
         '',
         '[[metadata]]',
@@ -127,6 +128,41 @@ suite('a photographer uploads a phone photo on github.com and fills in every set
     assert.equal(await href('Download original file'), 'https://raw.githubusercontent.com/gjh/harbour/main/content/Harbour%20view.jpg');
     assert.equal(await href('View manifest'), 'https://gjh.github.io/harbour/iiif/manifest.json');
     assert.equal(await exists(join(site.dist, 'iiif/image/full/max/0/default.jpg')), true);
+    await close();
+  });
+
+  test('a shared link shows the title, the summary and a picture that is published', async () => {
+    const html = await readFile(join(site.dist, 'index.html'), 'utf8');
+    const meta = (name) => html.match(new RegExp(`<meta (?:property|name)="${name}" content="([^"]*)">`))?.[1];
+    assert.match(html, /<title>Harbour at dusk<\/title>/);
+    assert.equal(meta('og:title'), 'Harbour at dusk');
+    assert.equal(meta('og:description'), 'The fishing fleet coming in.');
+    assert.equal(meta('og:url'), 'https://gjh.github.io/harbour/');
+    assert.equal(meta('og:image:alt'), 'Fishing boats coming into the harbour at dusk');
+    const picture = meta('og:image');
+    assert.ok(picture.startsWith('https://gjh.github.io/harbour/iiif/image/full/'), picture);
+    assert.equal(await exists(join(site.dist, picture.slice('https://gjh.github.io/harbour/'.length))), true);
+  });
+
+  test('without JavaScript the page still shows the picture, described, with its links', async () => {
+    const { page, problems, close } = await open(site, '', { javaScriptEnabled: false });
+    const picture = page.locator('.fallback img');
+    await picture.waitFor();
+    assert.equal(await page.locator('.fallback h1').textContent(), 'Harbour at dusk');
+    assert.equal(await picture.getAttribute('alt'), 'Fishing boats coming into the harbour at dusk');
+    await page.waitForLoadState('networkidle');
+    assert.equal(await picture.evaluate((img) => img.complete && img.naturalWidth > 0), true, 'the picture loads');
+    assert.deepEqual(await page.locator('.fallback a').allTextContents(), ['IIIF manifest', 'Full-size JPEG', 'Original file']);
+    assert.deepEqual(problems, []);
+    await close();
+  });
+
+  test('a screen reader is told what the picture shows', async () => {
+    const { page, close } = await open(site);
+    const viewer = page.getByRole('region', { name: 'Image viewer' });
+    await viewer.waitFor();
+    const description = page.locator(`#${await viewer.getAttribute('aria-describedby')}`);
+    assert.equal(await description.textContent(), 'Fishing boats coming into the harbour at dusk');
     await close();
   });
 
@@ -302,7 +338,8 @@ suite('an archive commits a 16-bit scan through Git LFS and changes no settings'
   });
 });
 
-// What someone gets wrong, and the sentence that must tell them so. Nothing may be built for deployment.
+// What someone gets wrong, and the sentence that must tell them so. The build fails, so the workflow stops before
+// deploying, and nothing about the image is made.
 const mistakes = [
   {
     name: 'commits two images',
@@ -341,6 +378,7 @@ for (const { name, files, says } of mistakes) {
     assert.equal(site.built, false);
     assert.equal(site.code, 1);
     assert.match(site.log, says);
-    assert.equal(await exists(join(site.dist, 'index.html')), false);
+    assert.equal(await exists(join(site.dist, 'site.json')), false);
+    assert.equal(await exists(join(site.dist, 'iiif')), false);
   });
 }
