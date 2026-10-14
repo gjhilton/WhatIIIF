@@ -76,6 +76,12 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 
 export function SettingsHelper({ initial, editUrl, title }: { initial?: Settings; editUrl?: string; title?: string }) {
   const [settings, setSettings] = useState<Settings>(() => ({ ...(parseConfig('') as Settings), ...initial }));
+  // Most sites are in one language, so translations are offered only on request, or when there are some already.
+  const [translating, setTranslating] = useState(() => {
+    const texts = [initial?.title, initial?.summary, initial?.creator, initial?.date, initial?.attribution, initial?.alt];
+    const all = [...texts, ...(initial?.metadata ?? []).flatMap(({ label, value }) => [label, value])];
+    return all.some((text) => text && Object.keys(text).some((tag) => tag !== initial?.language));
+  });
   const set = <K extends keyof Settings>(name: K, value: Settings[K]) => setSettings((now) => ({ ...now, [name]: value }));
   const [copied, setCopied] = useState(false);
   useEffect(() => {
@@ -88,7 +94,15 @@ export function SettingsHelper({ initial, editUrl, title }: { initial?: Settings
   const rightsChoice = !settings.rights ? '' : COMMON_RIGHTS.includes(settings.rights) ? settings.rights : OTHER;
   const dimensions = typeof settings.dimensions === 'object' ? settings.dimensions.text : (settings.dimensions ?? '');
   const text = (name: 'title' | 'summary' | 'creator' | 'date' | 'attribution' | 'alt', label: string, hint?: string, multiline = false) => (
-    <TextField label={label} hint={hint} value={settings[name]} language={settings.language} multiline={multiline} onChange={(value) => set(name, value)} />
+    <TextField
+      label={label}
+      hint={hint}
+      value={settings[name]}
+      language={settings.language}
+      multiline={multiline}
+      translatable={translating}
+      onChange={(value) => set(name, value)}
+    />
   );
 
   return (
@@ -101,6 +115,17 @@ export function SettingsHelper({ initial, editUrl, title }: { initial?: Settings
       </header>
       <main className="settings-columns">
         <form className="settings-form" onSubmit={(event) => event.preventDefault()}>
+          <section>
+            <h2>Language</h2>
+            <Field label="Language of your texts" hint={`A language code such as en, cy or de-CH: ${languageName(settings.language)}.`}>
+              <input value={settings.language} onChange={(event) => set('language', event.target.value.trim())} />
+            </Field>
+            <label className="check">
+              <input type="checkbox" checked={translating} onChange={(event) => setTranslating(event.target.checked)} />
+              Give texts in other languages too
+            </label>
+          </section>
+
           <section>
             <h2>About the picture</h2>
             {text('title', 'Title', 'Left blank, the title is the picture’s file name.')}
@@ -144,12 +169,14 @@ export function SettingsHelper({ initial, editUrl, title }: { initial?: Settings
                   label="Name"
                   value={entry.label}
                   language={settings.language}
+                  translatable={translating}
                   onChange={(label) => set('metadata', settings.metadata.map((e, j) => (j === i ? { ...e, label: label ?? {} } : e)))}
                 />
                 <TextField
                   label="Value"
                   value={entry.value}
                   language={settings.language}
+                  translatable={translating}
                   onChange={(value) => set('metadata', settings.metadata.map((e, j) => (j === i ? { ...e, value: value ?? {} } : e)))}
                 />
                 <button type="button" className="quiet" onClick={() => set('metadata', settings.metadata.filter((_, j) => j !== i))}>
@@ -164,9 +191,6 @@ export function SettingsHelper({ initial, editUrl, title }: { initial?: Settings
 
           <section>
             <h2>The page</h2>
-            <Field label="Language of your texts" hint={`A language code such as en, cy or de-CH: ${languageName(settings.language)}.`}>
-              <input value={settings.language} onChange={(event) => set('language', event.target.value.trim())} />
-            </Field>
             <Field label="Viewer it opens in" hint="Visitors can switch.">
               <select value={settings.viewer} onChange={(event) => set('viewer', event.target.value)}>
                 <option value="openseadragon">OpenSeadragon</option>

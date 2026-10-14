@@ -9,11 +9,13 @@ interface Props {
   /** The site's language: the text's first box is in it. */
   language: string;
   multiline?: boolean;
+  /** Whether to offer to add a translation; one already given is shown either way. */
+  translatable?: boolean;
   onChange: (value: Text | undefined) => void;
 }
 
 /** A text in the site's language, with a box for each translation and a button to add one. */
-export function TextField({ label, hint, value = {}, language, multiline = false, onChange }: Props) {
+export function TextField({ label, hint, value = {}, language, multiline = false, translatable = false, onChange }: Props) {
   const translations = Object.entries(value).filter(([tag]) => tag !== language);
   const change = (entries: [string, string][]) => {
     const map = Object.fromEntries(entries);
@@ -44,9 +46,11 @@ export function TextField({ label, hint, value = {}, language, multiline = false
           </span>
         );
       })}
-      <button type="button" className="quiet" onClick={() => change([...withMain(value[language] ?? ''), ['', '']])}>
-        Add a translation
-      </button>
+      {translatable && (
+        <button type="button" className="quiet" onClick={() => change([...withMain(value[language] ?? ''), ['', '']])}>
+          Add a translation
+        </button>
+      )}
       {hint && <span className="hint">{hint}</span>}
     </div>
   );

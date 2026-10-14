@@ -1,3 +1,4 @@
+# whatiiif: template only.
 # Checks for developing this template itself. They run only in the template, not in copies made from it.
 name: CI
 

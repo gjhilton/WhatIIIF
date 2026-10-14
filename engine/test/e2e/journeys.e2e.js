@@ -319,7 +319,7 @@ suite('a photographer uploads a phone photo on github.com and fills in every set
     await page.emulateMedia({ media: 'print' });
     const view = page.locator('.print-view');
     assert.equal(await view.isVisible(), true);
-    assert.equal(await view.evaluate((img) => img.naturalWidth > 0 && img.src.startsWith('data:image/jpeg')), true, 'a still of the view');
+    assert.equal(await view.evaluate((img) => img.naturalWidth > 0 && img.src.startsWith('data:image/png')), true, 'a still of the view');
     assert.equal(await page.locator('.details .uses').isVisible(), false, 'no copy fields on paper');
     assert.equal(await page.locator('.print-only p').textContent(), citationToday(page.url()));
     assert.deepEqual(await page.evaluate(() => [getComputedStyle(document.body).backgroundColor, getComputedStyle(document.body).color]), ['rgb(255, 255, 255)', 'rgb(0, 0, 0)']);
@@ -335,6 +335,11 @@ suite('a photographer uploads a phone photo on github.com and fills in every set
     await file.waitFor();
     assert.equal(await page.title(), 'Settings: Harbour at dusk');
     assert.equal(await page.getByRole('textbox', { name: 'Title', exact: true }).inputValue(), 'Harbour at dusk');
+
+    const translate = page.getByRole('button', { name: 'Add a translation' });
+    assert.equal(await translate.count(), 0, 'a site in one language is not offered translations');
+    await page.getByRole('checkbox', { name: 'Give texts in other languages too' }).check();
+    assert.ok((await translate.count()) > 0, 'until it asks');
 
     await page.getByRole('textbox', { name: 'Title', exact: true }).fill('Harbour at night');
     const { settings } = await json(join(site.dist, 'settings.json'));

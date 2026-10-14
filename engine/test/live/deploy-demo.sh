@@ -17,6 +17,9 @@ git "${nolfs[@]}" clone -q "git@github.com:$demo.git" "$work"
 # Everything but content/ is replaced by this commit's, as "Use this template" would give it today.
 git -C "$work" rm -q -r -- . ':!content'
 git archive HEAD -- $(git ls-tree --name-only HEAD | grep -vx content) | tar -x -C "$work"
+# Its workflows call the template's steps at the v0 tag, the last release: here they call this commit's instead.
+sed -i.orig -E "s#(uses: [^ ]+/\.github/workflows/[^@ ]+)@v0\$#\1@$sha#" "$work"/.github/workflows/*.yml
+rm "$work"/.github/workflows/*.orig
 git -C "$work" "${nolfs[@]}" add -A
 
 if git -C "$work" diff --cached --quiet; then

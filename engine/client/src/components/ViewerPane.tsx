@@ -83,7 +83,8 @@ export function ViewerPane({ site, viewer, language, startAt, goTo, onRegionChan
       const canvases = [...(host.current?.querySelectorAll('canvas') ?? [])];
       const drawn = canvases.sort((a, b) => b.width * b.height - a.width * a.height)[0]; // the viewer's, not its overview
       try {
-        flushSync(() => setSnapshot(drawn?.toDataURL('image/jpeg', 0.92)));
+        // PNG: JPEG would blur the edges between colours, and turn the canvas's clear margins black.
+        flushSync(() => setSnapshot(drawn?.toDataURL('image/png')));
       } catch {
         // A canvas that cannot be read is printed as it is.
       }

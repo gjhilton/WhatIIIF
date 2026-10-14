@@ -3,7 +3,8 @@
 ## How it works
 
 `content/` belongs to whoever uses the template; everything else belongs to the template. On every push that
-touches either, the **Deploy** workflow (`.github/workflows/deploy.yml`) checks that `content/` holds an image, or
+touches either, the **Deploy** workflow (`.github/workflows/deploy.yml`, which runs `publish.yml`) checks that
+`content/` holds an image, or
 that `whatiiif.toml` links to one (`engine/ci/has-image.js`). It then runs `engine/ci/build.sh`, which builds the page
 (`engine/client/`, React and Vite) and then the site from the picture (`engine/build.js`, which runs
 `engine/lib/build.js`). In a workflow run, `engine/build.js` also puts anything that went wrong, or is worth a look,
@@ -35,8 +36,13 @@ move it to a part of the picture, and reports where the visitor has moved it. Ev
 black and white swapped for dark mode; nothing else names one, and both viewers take theirs from it (`colours.ts`),
 opening again if the computer switches between light and dark.
 
-Copies of the template call `engine/ci/has-image.js`, `engine/ci/build.sh`, `engine/ci/update.sh` and
-`engine/.node-version` from workflow files that the Update workflow cannot change, so those paths must stay put.
+A copy's own `deploy.yml` and `update.yml` say only when to run: they call `publish.yml` and `offer-update.yml` in
+this repository at the `v0` tag, which each release moves (`release.yml`), so steps improve in every copy without
+anyone copying a workflow file. Those run the copy's own `engine/ci/has-image.js`, `engine/ci/build.sh`,
+`engine/ci/update.sh` and `engine/.node-version`, and a copy may be on any earlier release, so those paths must stay
+put and keep working as they do. A workflow whose first line is `# whatiiif: template only` is never passed on to
+copies. To make a template of your own from this one, change `gjhilton/whatiiif` in `deploy.yml` and `update.yml`
+as well as in `engine/UPSTREAM`.
 
 ## Working on it
 
@@ -85,11 +91,13 @@ The tests above run what the workflows run, but not the workflows themselves, Gi
 Two checks cover those:
 
 - **Live** (`.github/workflows/live.yml`), after every change to `main`: pushes the template to the demo repository
-  named by the `DEMO_REPOSITORY` variable, keeping its `content/`, waits for the demo's own Deploy workflow and runs
+  named by the `DEMO_REPOSITORY` variable, keeping its `content/` and with its workflows calling this commit's steps
+  rather than `v0`'s, waits for the demo's own Deploy workflow and runs
   `check-site.js` on the live site (`engine/test/live/deploy-demo.sh`). It pushes with a deploy key for the demo
   only, stored as the `DEMO_DEPLOY_KEY` secret. Copies of the template have no `DEMO_REPOSITORY` and skip it.
 - **`npm run test:live`**, by hand, about ten minutes. Each file makes its own public repository with "Use this
-  template" (`engine/test/live/trial.js`), using your `gh` login, and deletes it afterwards if `gh` may
+  template" (`engine/test/live/trial.js`), using your `gh` login, with its workflows calling the steps at the
+  commit tried (so push it first), and deletes it afterwards if `gh` may
   (`gh auth refresh -s delete_repo`, once); otherwise it names the repository to delete by hand.
   - `github.live.js` puts this commit of the template in its repository and does what a newcomer might. It uploads
     a picture before switching Pages on and expects the run to say how to fix that, switches Pages on and re-runs,
@@ -104,7 +112,7 @@ Two checks cover those:
 
 Copies of the template update themselves from the repository named in `engine/UPSTREAM`
 (`.github/workflows/update.yml` and `engine/ci/update.sh`). To release, bump `engine/VERSION` and publish a GitHub
-release tagged `vX.Y.Z`. An update replaces `engine/`, `package.json` and `package-lock.json` only, and is never
+release tagged `vX.Y.Z`; `release.yml` then moves the `v0` tag to it, and every copy runs its steps from then on. An update replaces `engine/`, `package.json` and `package-lock.json` only, and is never
 offered to a copy already on that version or a later one. GitHub does not let the workflow change workflow files,
 so users copy those by hand; the pull request says when they need to (`ci.yml` and `live.yml` run only in the
 template, so changes to those are not mentioned).

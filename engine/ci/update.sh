@@ -55,12 +55,15 @@ base=$(git rev-parse --abbrev-ref HEAD) # the branch to update, as checked out; 
 body="Updates the engine, preview page and tooling from **$UPSTREAM** $current → $latest. Your \`content/\` is untouched."
 
 # GitHub does not let a workflow change workflow files, so each one that changed upstream is listed, with links, for
-# the repository's owner to copy by hand. ci.yml and live.yml run only in the template itself, so they never need it.
+# the repository's owner to copy by hand. Those whose first line says "whatiiif: template only" run only in the
+# template, or are called from it by copies, so they never need copying (nor, from before there was a marker, do
+# ci.yml and live.yml).
 copies=()
 shopt -s nullglob
 for file in "$work/src/.github/workflows/"*.yml "$work/src/.github/workflows/"*.yaml; do
   name=$(basename "$file")
   [[ "$name" == ci.yml || "$name" == live.yml ]] && continue
+  head -1 "$file" | grep -q '^# whatiiif: template only' && continue
   copy="open [the new version]($theirs/blob/$tag/.github/workflows/$name), copy all of it, and paste it"
   if [[ ! -f ".github/workflows/$name" ]]; then
     copies+=("- \`$name\` (new): $copy into [a new file]($mine/new/$base?filename=.github/workflows/$name).")

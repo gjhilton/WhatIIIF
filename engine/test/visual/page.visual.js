@@ -44,10 +44,9 @@ summary = "The fishing fleet coming in."
 attribution = "Example Museum"
 alt = "Fishing boats coming into the harbour at dusk"
 rights = "https://creativecommons.org/licenses/by/4.0/"
-
-[[metadata]]
-label = "Date"
-value = "1890"
+creator = "A. Painter"
+date = "1890"
+dimensions = "120 x 80 cm"
 
 [tiles]
 quality = 100 # fewer JPEG speckles, so much smaller screenshots
@@ -156,6 +155,23 @@ test('the viewer could not load, in dark mode: said in a red that reads on black
   });
   await expect(page.locator('.viewer-error')).toHaveCSS('color', 'rgb(255, 85, 85)');
   await expect(page).toHaveScreenshot('dark-viewer-error.png', { fullPage: true });
+  await close();
+});
+
+test('the page printed', async ({ browser }) => {
+  // The citation gives the day the page was viewed: always the same one here.
+  const { page, close } = await open(browser, one, { query: '?viewer=openseadragon', before: (p) => p.clock.setFixedTime(new Date(2026, 9, 15, 12)) });
+  await page.evaluate(() => dispatchEvent(new Event('beforeprint')));
+  await page.emulateMedia({ media: 'print' });
+  await expect(page).toHaveScreenshot('printed.png', { fullPage: true });
+  await close();
+});
+
+test('the settings helper', async ({ browser }) => {
+  const { page, problems, close } = await open(browser, one, { query: 'settings.html' });
+  await expect(page.getByRole('textbox', { name: 'Title', exact: true })).toHaveValue('Harbour at dusk');
+  await expect(page).toHaveScreenshot('settings.png', { fullPage: true });
+  expect(problems).toEqual([]);
   await close();
 });
 

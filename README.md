@@ -151,11 +151,12 @@ each visitor who downloads the original; `[publish] original = false` in `conten
 
 ## Keeping up to date
 
-Once a week an **Update** workflow checks for a new release of whatiiif and, if there is one, opens a pull request
-in your repository: merge it to update. To let it do that, turn on **Settings → Actions → General → Workflow
-permissions → Allow GitHub Actions to create and approve pull requests**. It never touches your `content` folder.
-GitHub does not let it change the files in `.github/workflows`, so when one of those changes, the pull request links
-to the new version and to yours, for you to copy it over by hand.
+Your repository's workflows run steps kept in the whatiiif repository, at its latest release, so those improve by
+themselves. Once a week an **Update** workflow checks for a new release of whatiiif and, if there is one, opens a
+pull request in your repository with the rest: merge it to update. To let it do that, turn on **Settings → Actions →
+General → Workflow permissions → Allow GitHub Actions to create and approve pull requests**. It never touches your
+`content` folder. GitHub does not let it change the files in `.github/workflows`, so in the rare release that changes
+one of yours, the pull request links to the new version and to yours, for you to copy it over by hand.
 
 ## No warranty
 
