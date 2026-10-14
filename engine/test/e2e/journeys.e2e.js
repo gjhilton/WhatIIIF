@@ -206,6 +206,8 @@ suite('a photographer uploads a phone photo on github.com and fills in every set
     await blog.page.mouse.wheel(0, 300);
     await until(() => blog.page.evaluate(() => scrollY > 0), 'the post to scroll');
     assert.ok(await frame.locator('.openseadragon-cooperative-overlay').textContent(), 'a hint says how to zoom');
+    await blog.page.evaluate(() => scrollTo(0, 0));
+    await zoomToFullResolution(blog, { holding: 'Control', within: frame });
     assert.equal(await frame.locator('.masthead').count(), 0, 'no header');
     assert.equal(await frame.locator('.details').count(), 0, 'no details');
     assert.deepEqual(await frame.locator('.credit span').allTextContents(), ['Harbour at dusk', 'Example Museum']);

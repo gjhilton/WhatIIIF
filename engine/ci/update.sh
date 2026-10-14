@@ -50,7 +50,7 @@ cp "$work/src/package.json" "$work/src/package-lock.json" .
 
 mine="https://github.com/${GITHUB_REPOSITORY}"
 theirs="https://github.com/$UPSTREAM"
-base=${GITHUB_REF_NAME:-main}
+base=$(git rev-parse --abbrev-ref HEAD) # the branch to update, as checked out; GITHUB_REF_NAME can name a merge ref
 
 body="Updates the engine, preview page and tooling from **$UPSTREAM** $current → $latest. Your \`content/\` is untouched."
 
@@ -90,7 +90,7 @@ if [[ -n "$same" ]]; then
   gh pr edit "$same" --body "$body"
   exit 0
 fi
-if ! url=$(gh pr create --title "Update whatiiif to $latest" --body "$body" --head "$branch" 2> "$errors"); then
+if ! url=$(gh pr create --title "Update whatiiif to $latest" --body "$body" --base "$base" --head "$branch" 2> "$errors"); then
   if grep -q 'not permitted to create or approve pull requests' "$errors"; then
     echo "::error title=Update $latest is ready but could not be offered::This repository does not let workflows open pull requests. Turn on Settings → Actions → General → Workflow permissions → Allow GitHub Actions to create and approve pull requests, then run the Update workflow again; or open the pull request yourself: $mine/compare/$base...$branch?expand=1"
   fi

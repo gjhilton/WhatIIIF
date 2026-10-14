@@ -111,8 +111,10 @@ async function release(version, change = async () => {}) {
   return upstream;
 }
 
+// GITHUB_REF_NAME is what GitHub sets for the run that runs these tests (9/merge, for a pull request): the script
+// must link to the branch it updates, which it has checked out, whatever that says.
 const update = (cwd, gh, repository = 'someone/their-image') =>
-  run('bash', ['engine/ci/update.sh'], { cwd, env: { PATH: `${gh.bin}:${process.env.PATH}`, GITHUB_REPOSITORY: repository } });
+  run('bash', ['engine/ci/update.sh'], { cwd, env: { PATH: `${gh.bin}:${process.env.PATH}`, GITHUB_REPOSITORY: repository, GITHUB_REF_NAME: '9/merge' } });
 
 test('a newer release replaces the engine on a branch, leaves content/ alone and opens a pull request', async () => {
   // Upstream has moved on: a new version, a change inside the engine, a file gone, and a workflow edited.
