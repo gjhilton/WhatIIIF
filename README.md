@@ -1,4 +1,4 @@
-# ![whatiiif](engine/artwork/whatiffflogo.svg)
+# ![whatiiif](engine/artwork/whatiffflogo.png)
 
 **See the demo: [gjhilton.github.io/whatiiif-demo](https://gjhilton.github.io/whatiiif-demo/)**
 
