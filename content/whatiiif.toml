@@ -18,7 +18,7 @@
 # value = "1890"
 
 # [tiles]
-# size = 512                    # tile edge in pixels
+# size = 512                    # tile edge in pixels, 64 to 4096
 # quality = 85                  # JPEG quality, 1-100
 
 # [publish]
