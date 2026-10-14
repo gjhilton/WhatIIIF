@@ -39,9 +39,14 @@ rights = "https://creativecommons.org/licenses/by/4.0/"
 Click **Commit changes** and the site rebuilds itself. For a longer description, add a file called
 `content/description.md` (written in [Markdown](https://commonmark.org/help/)).
 
+- **Point at details:** zoom in on something on your site, copy **Link to this view**, and use it as a link in
+  `description.md`: `[the lighthouse](https://…#xywh=1200,300,400,400)`. Clicking it takes the viewer there.
 - **Other languages:** write any text like `title = { en = "Harbour", cy = "Harbwr" }`, and add
   `description.cy.md` next to `description.md`. Visitors see their own language and can switch.
-- **rights** must be a Creative Commons or RightsStatements.org address. Put any other terms in `attribution`.
+- **rights** must be a Creative Commons or RightsStatements.org address; the address of the licence's own page,
+  copied from your browser, is fine. Put any other terms in `attribution`.
+- **Colours:** the page is black on white, or white on black for visitors whose computer is set to dark mode. To
+  use your own colours instead, add a `[colours]` section; the file shows how.
 - Every setting is explained in the file itself.
 
 ## Share it
@@ -60,7 +65,8 @@ Delete the old file from the `content` folder and upload the new one. The site h
 
 ## If something goes wrong
 
-Open the **Actions** tab and click the run with a red cross. The error explains what to fix:
+Open the **Actions** tab and click the run with a red cross. What went wrong is shown at the top of the run's page,
+with what to fix:
 
 | The error says | What to do |
 |---|---|
@@ -68,26 +74,38 @@ Open the **Actions** tab and click the run with a red cross. The error explains 
 | content/ must contain exactly one image | Delete the extra pictures from `content`. |
 | … is not supported yet | Save the picture as TIFF, PNG or JPEG and upload that instead. |
 | content/whatiiif.toml: … | Fix the setting it names; the message says how. |
+| Could not download the picture at … | Check the `picture` link: paste it into a private browser window, and it should download the picture. |
 | Timeout reached, or Deployment cancelled | GitHub Pages was slow. Re-running may not help: make any small change, such as a line in `content/whatiiif.toml`, and commit it to start afresh. |
 
-If nothing runs at all after you upload, check that the picture went into the **content** folder.
+If nothing runs at all after you upload, check that the picture went into the **content** folder. A run that worked
+may still list things **worth a look**, such as a file in `content` with a misspelt name, which the site does not use.
 
 ## Large pictures
 
-Pictures over 25 MB cannot be uploaded in the browser, so use Git on your computer instead. This template already
-sends pictures through [Git LFS](https://git-lfs.com), which handles files over GitHub's 100 MB limit:
+Pictures over 25 MB cannot be uploaded into `content`, but a release can hold a file of up to 2 GB, also in the
+browser:
 
-1. Install [Git LFS](https://git-lfs.com) and run `git lfs install` once.
-2. Clone your repository, copy the picture into `content/`, then commit and push.
+1. On your repository's **Code** tab, click **Releases** (on the right), then **Create a new release**.
+2. Under **Choose a tag**, type `picture` and click **Create new tag**. Give the release any title.
+3. Drop the picture into the box at the bottom, wait for it to upload, and click **Publish release**.
+4. On the release's page, right-click the picture's name under **Assets** and copy the link.
+5. Open `content/whatiiif.toml`, add a line `picture = "…"` with that link between the quotes, and commit it.
 
-Free GitHub accounts include 10 GiB of LFS storage and 10 GiB of downloads a month; each rebuild downloads the
-picture once.
+The site is built from the picture at the link, which is also where visitors download the original. To change the
+picture, upload the new one the same way and change the link.
+
+If you use Git on your computer, you can instead commit the picture into `content/` as usual: this template sends
+pictures through [Git LFS](https://git-lfs.com), which handles files over GitHub's 100 MB limit. Free GitHub accounts
+include 10 GiB of LFS storage and 10 GiB of downloads a month. Each rebuild downloads the picture once, and so does
+each visitor who downloads the original; `[publish] original = false` in `content/whatiiif.toml` stops offering it.
 
 ## Keeping up to date
 
 When this template improves, an **Update** workflow opens a pull request in your repository: merge it to update.
 To let it do that, turn on **Settings → Actions → General → Allow GitHub Actions to create and approve pull
-requests**. It never touches your `content` folder.
+requests**. It never touches your `content` folder. GitHub does not let it change the files in
+`.github/workflows`, so when one of those changes, the pull request links to the new version and to yours, for you to
+copy it over by hand.
 
 ---
 
