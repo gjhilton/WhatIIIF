@@ -304,6 +304,16 @@ suite('a Welsh archive publishes its image in Welsh and English', () => {
 
     assert.deepEqual((await shown({ locale: 'en-GB', query: '?lang=cy' })).title, ['Harbwr', 'cy']);
   });
+
+  test('switching language leaves OpenSeadragon, which shows no words of its own, as it was', async () => {
+    const { page, close } = await open(site, '?viewer=openseadragon', { locale: 'en-GB' });
+    await page.locator('.openseadragon-container').first().waitFor();
+    await page.locator('.viewer-surface').evaluate((surface) => surface.setAttribute('data-before', ''));
+    await page.getByRole('group', { name: 'Language' }).locator('button[lang="cy"]').click();
+    await page.locator('h1', { hasText: 'Harbwr' }).waitFor();
+    assert.equal(await page.locator('.viewer-surface[data-before]').count(), 1, 'the same viewer, not a new one');
+    await close();
+  });
 });
 
 suite('a visitor shares the part of the picture they have zoomed into', () => {

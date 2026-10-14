@@ -18,6 +18,7 @@ export function ViewerPane({ site, viewer, language, startAt, onRegionChange }: 
   const host = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string>();
   const alt = inLanguage(site.alt, language, site);
+  const viewerLanguage = viewers[viewer].localised ? language : site.language;
 
   useEffect(() => {
     let cancelled = false;
@@ -30,7 +31,7 @@ export function ViewerPane({ site, viewer, language, startAt, onRegionChange }: 
     viewers[viewer]
       .load()
       .then((adapter) => {
-        if (!cancelled) teardown = adapter.mount(el, site, { language, region: startAt.current, onRegionChange });
+        if (!cancelled) teardown = adapter.mount(el, site, { language: viewerLanguage, region: startAt.current, onRegionChange });
       })
       .catch((e: Error) => setError(`Could not load ${viewers[viewer].label}: ${e.message}`));
 
@@ -38,7 +39,7 @@ export function ViewerPane({ site, viewer, language, startAt, onRegionChange }: 
       cancelled = true;
       teardown?.();
     };
-  }, [site, viewer, language, startAt, onRegionChange]);
+  }, [site, viewer, viewerLanguage, startAt, onRegionChange]);
 
   return (
     <div className="viewer" role="region" aria-label="Image viewer" aria-describedby="viewer-alt">
