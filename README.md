@@ -1,4 +1,4 @@
-# ![whatiiif](engine/artwork/whatiffflogo.png)
+# ![whatiiif](engine/artwork/whatiffflogo.svg)
 
 Put one large picture on the web, zoomable, for free: a map, a manuscript page, a painting, a photograph.
 You upload the image to GitHub, and GitHub builds a website where anyone can zoom into it, share a link to any
