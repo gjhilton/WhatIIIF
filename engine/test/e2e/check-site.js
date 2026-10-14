@@ -28,11 +28,11 @@ before(async () => {
 after(() => browser?.close());
 
 test('the page opens and is titled after the image', async () => {
-  const { title } = await json('site.json');
+  const titles = Object.values((await json('site.json')).title); // in whichever of its languages the browser gets
   const { page, problems, close } = await browse(browser, { siteUrl, fileFor });
   await page.locator('h1').waitFor();
-  assert.equal(await page.locator('h1').textContent(), title);
-  assert.equal(await page.title(), title);
+  assert.ok(titles.includes(await page.locator('h1').textContent()), `the heading is one of ${titles}`);
+  assert.equal(await page.title(), await page.locator('h1').textContent());
   assert.deepEqual(problems, []);
   await close();
 });
