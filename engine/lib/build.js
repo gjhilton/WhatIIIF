@@ -3,13 +3,19 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { readContent } from './content.js';
 import { slice } from './slice.js';
-import { applyBudget } from './budget.js';
+import { PAGES_BUDGET_BYTES, applyBudget } from './budget.js';
 import { missingFiles } from './service.js';
 import { buildManifest } from './manifest.js';
 import { committedToLfs, originalUrl, repositoryIsPublic } from './original.js';
 import { cardImage, makeIcon, personalisePage } from './page.js';
 
 const LOCAL_BASE_URL = 'http://localhost:4173';
+const LOWEST_QUALITY = 45; // below this, JPEG tiles look blocky up close
+
+const megabytes = (bytes) => `${(bytes / 1024 / 1024).toFixed(bytes < 10 * 1024 * 1024 ? 1 : 0)} MB`;
+
+/** The JPEG qualities to try, best first: the one asked for, then lower ones until the site fits GitHub Pages. */
+const qualities = (asked) => [asked, ...[75, 65, 55, LOWEST_QUALITY].filter((quality) => quality < asked)];
 
 /** Where visitors can download the picture the site was made from, if they can and its owner wants them to. */
 async function original(image, config, env) {
@@ -26,7 +32,7 @@ async function original(image, config, env) {
  * built already, its title, colours, social-card tags, the fallback shown without JavaScript, and site.json again.
  * `warn` is told about anything the owner may want to put right that does not stop the build.
  */
-export async function build({ contentDir, outDir, env = process.env, log = () => {}, warn = log, fetch = globalThis.fetch }) {
+export async function build({ contentDir, outDir, env = process.env, log = () => {}, warn = log, fetch = globalThis.fetch, budgetBytes = PAGES_BUDGET_BYTES }) {
   const downloads = await mkdtemp(join(tmpdir(), 'whatiiif-picture-'));
   try {
     const { image, config, description, languages, notes } = await readContent(contentDir, { fetch, downloads });
@@ -38,13 +44,28 @@ export async function build({ contentDir, outDir, env = process.env, log = () =>
     const manifestId = `${baseUrl}/iiif/manifest.json`;
     const imageDir = join(outDir, 'iiif/image');
 
-    log(`Slicing ${image.name}…`);
-    await rm(imageDir, { recursive: true, force: true }); // a rebuild must not inherit tiles from the previous image
-    const { size: tileSize, quality } = config.tiles;
-    const info = await slice({ source: image.path, outDir: imageDir, id: imageId, tileSize, quality, publishFull: config.publish.full });
-
-    const { bytes, droppedFull } = await applyBudget({ dir: imageDir, info });
+    // Sliced at the quality asked for, then, if the tiles are too big for GitHub Pages even without the full-size
+    // JPEG, again at lower qualities until they fit.
+    const { size: tileSize, quality: asked } = config.tiles;
+    let info;
+    let fitted;
+    let quality;
+    for (quality of qualities(asked)) {
+      log(`Slicing ${image.name} at quality ${quality}…`);
+      await rm(imageDir, { recursive: true, force: true }); // a rebuild must not inherit tiles from the previous image
+      info = await slice({ source: image.path, outDir: imageDir, id: imageId, tileSize, quality, publishFull: config.publish.full });
+      fitted = await applyBudget({ dir: imageDir, info, budgetBytes });
+      if (fitted.fits) break;
+    }
+    const { bytes, droppedFull } = fitted;
+    if (!fitted.fits) {
+      const scale = Math.floor(Math.sqrt(budgetBytes / bytes) * 100);
+      throw new Error(
+        `The picture is too big for GitHub Pages: its tiles take ${megabytes(bytes)} even at quality ${quality}, and ${megabytes(budgetBytes)} fit. Make it smaller: about ${scale}% of its width and height would fit.`,
+      );
+    }
     if (droppedFull) warn('The site would have been too big for GitHub Pages, so the full-size JPEG was left out.');
+    if (quality < asked) warn(`The tiles were too big for GitHub Pages at quality ${asked}, so they were made at quality ${quality}.`);
 
     const missing = await missingFiles(imageDir);
     if (missing.length) {

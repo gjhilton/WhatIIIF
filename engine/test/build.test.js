@@ -212,3 +212,28 @@ test('in a workflow run, a message over several lines stays one annotation', asy
   const { escapeAnnotation } = await import('../lib/report.js');
   assert.equal(escapeAnnotation('50% done\nthen\r more'), '50%25 done%0Athen%0D more');
 });
+
+// The tiles of a 2000x1500 picture at the default quality, 85, without the full-size JPEG: what it takes to fit.
+async function tilesAt85() {
+  const { content, out } = await setup('[publish]\nfull = false');
+  return (await build({ contentDir: content, outDir: out, env: {} })).bytes;
+}
+
+test('tiles too big for GitHub Pages are made again at a lower quality, and the build says so', async () => {
+  const budgetBytes = Math.round((await tilesAt85()) * 0.9);
+  const { content, out } = await setup();
+  const warnings = [];
+  const result = await build({ contentDir: content, outDir: out, env: {}, budgetBytes, warn: (message) => warnings.push(message) });
+  assert.ok(result.bytes <= budgetBytes, `${result.bytes} bytes fit in ${budgetBytes}`);
+  assert.equal(result.droppedFull, true, 'the full-size JPEG goes first');
+  assert.match(warnings.join('\n'), /The tiles were too big for GitHub Pages at quality 85, so they were made at quality (75|65|55|45)\./);
+  assert.deepEqual(await missingFiles(join(out, 'iiif/image')), []);
+});
+
+test('a picture too big for GitHub Pages at any quality stops the build, saying how much smaller it must be', async () => {
+  const { content, out } = await setup();
+  await assert.rejects(
+    build({ contentDir: content, outDir: out, env: {}, budgetBytes: 100_000 }),
+    /The picture is too big for GitHub Pages: its tiles take [\d.]+ MB even at quality 45, and [\d.]+ MB fit\. Make it smaller: about \d+% of its width and height would fit\./,
+  );
+});

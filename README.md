@@ -29,7 +29,8 @@ For you:
 
 - No server and no cost: GitHub builds the site and hosts it.
 - Upload a TIFF, PNG, JPEG, WebP, AVIF or GIF of up to 2 GB in the browser ([Large pictures](#large-pictures) shows how). If the
-  site would be too big for GitHub Pages, the full-size JPEG is left out to make room.
+  site would be too big for GitHub Pages, the full-size JPEG is left out, and if need be the tiles are made at a lower
+  JPEG quality, to make room.
 - Photos are turned the right way up and their colours kept true. The camera and location details are left out.
 - A title, summary, credit, licence and any other details you like, and a description that can link to parts of the
   picture.

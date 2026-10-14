@@ -18,7 +18,8 @@ at the top of the run's page as annotations, with a summary below them (`report.
   colour profile, and drops its EXIF.
 - `service.js` holds what a static image service promises: its `info.json`, every file a viewer reading that will
   ask for, and which of those a folder is missing. The build refuses to deploy a service that is missing any.
-- `budget.js` leaves out the full-size JPEG if the site would otherwise exceed GitHub Pages' size limit.
+- `budget.js` leaves out the full-size JPEG if the site would otherwise exceed GitHub Pages' size limit; if the
+  tiles alone are still too big, `build.js` slices again at lower JPEG qualities, down to 45, until they fit.
 - `manifest.js` writes the IIIF Presentation 3.0 manifest. The original file is not published; the manifest links
   to it in the repository (`original.js`), unless the repository is private or the owner says not to, or at the
   address it was downloaded from.
