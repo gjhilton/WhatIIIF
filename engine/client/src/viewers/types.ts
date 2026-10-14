@@ -1,5 +1,5 @@
 import type { Site } from '../site';
-import type { Region } from '../view';
+import type { Region } from '../address';
 
 export interface MountOptions {
   /** The language the visitor reads the page in; viewers with their own interface use it too. */

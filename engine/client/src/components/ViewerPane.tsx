@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type RefObject } from 'react';
 import { viewers } from '../viewers';
 import type { Site, ViewerId } from '../site';
 import { inLanguage } from '../language';
-import type { Region } from '../view';
+import type { Region } from '../address';
 
 interface Props {
   site: Site;
