@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Site, ViewerId } from './site';
 import { chooseLanguage, inLanguage, languageName } from './language';
-import { pageLink, regionFromHash, regionHash, withinImage, type Region } from './view';
+import { embedCode, pageLink, regionFromHash, regionHash, withinImage, type Region } from './view';
 import { viewers } from './viewers';
 import { ViewerPane } from './components/ViewerPane';
 import { Details } from './components/Details';
+import { Embed } from './components/Embed';
 
 const initialViewer = (site: Site): ViewerId => {
   const asked = new URLSearchParams(location.search).get('viewer');
@@ -43,6 +44,16 @@ export function App({ site }: { site: Site }) {
     document.title = title.text;
   }, [title.text]);
 
+  const viewerPane = <ViewerPane site={site} viewer={viewer} language={language} startAt={current} onRegionChange={onRegionChange} />;
+  const link = pageLink(site, { viewer, language, region });
+  if (new URLSearchParams(location.search).has('embed')) {
+    return (
+      <Embed site={site} language={language} fullPage={link}>
+        {viewerPane}
+      </Embed>
+    );
+  }
+
   return (
     <>
       <header className="masthead">
@@ -69,9 +80,9 @@ export function App({ site }: { site: Site }) {
           </div>
         </div>
       </header>
-      <ViewerPane site={site} viewer={viewer} language={language} startAt={current} onRegionChange={onRegionChange} />
+      {viewerPane}
       <main className="content">
-        <Details site={site} language={language} link={pageLink(site, { viewer, language, region })} />
+        <Details site={site} language={language} link={link} embed={embedCode(pageLink(site, { viewer, language, region, embed: true }), title.text)} />
       </main>
     </>
   );

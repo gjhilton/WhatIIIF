@@ -64,6 +64,15 @@ test('without JavaScript the page shows the picture, with alt text', async () =>
   await close();
 });
 
+test('the embedded view shows the picture and its credit, and nothing else', async () => {
+  const { page, fetched, problems, close } = await browse(browser, { siteUrl, fileFor, query: '?embed' });
+  await page.locator('.credit').waitFor();
+  assert.equal(await page.locator('.masthead').count(), 0);
+  await zoomToFullResolution({ page, fetched });
+  assert.deepEqual(problems, []);
+  await close();
+});
+
 test('the image service is where it says it is, with every file a viewer could ask for', async () => {
   const info = await json('iiif/image/info.json');
   assert.equal(info.id, `${siteUrl}/iiif/image`);

@@ -115,6 +115,7 @@ suite('a photographer uploads a phone photo on github.com and fills in every set
       'https://gjh.github.io/harbour/iiif/manifest.json',
       'https://gjh.github.io/harbour/iiif/image/info.json',
       'https://gjh.github.io/harbour/?viewer=openseadragon', // the link to this view: the whole picture, so no fragment
+      '<iframe src="https://gjh.github.io/harbour/?embed&amp;viewer=openseadragon" width="800" height="600" style="border:0" allowfullscreen loading="lazy" title="Harbour at dusk"></iframe>',
     ]);
     await fields.first().locator('button').click();
     assert.equal(await page.evaluate(() => navigator.clipboard.readText()), 'https://gjh.github.io/harbour/iiif/manifest.json');
@@ -165,6 +166,43 @@ suite('a photographer uploads a phone photo on github.com and fills in every set
     const description = page.locator(`#${await viewer.getAttribute('aria-describedby')}`);
     assert.equal(await description.textContent(), 'Fishing boats coming into the harbour at dusk');
     await close();
+  });
+
+  test('the embed code puts the picture on someone else\'s page, with its credit and a link back', async () => {
+    const { page, close } = await open(site);
+    const snippet = await page.getByLabel('Embed on a web page').inputValue();
+    await close();
+
+    // A blog on another site, carrying the snippet; the site itself is answered from the build.
+    const context = await browser.newContext({ viewport: { width: 1000, height: 800 } });
+    const blog = await context.newPage();
+    const fetched = [];
+    const problems = [];
+    await context.route('**/*', async (route) => {
+      const url = route.request().url();
+      if (url === 'https://blog.example/post.html') return route.fulfill({ contentType: 'text/html', body: `<!doctype html><h1>My post</h1>${snippet}` });
+      if (!url.startsWith(`${site.baseUrl}/`)) return problems.push(`request to another site: ${url}`), route.abort();
+      const path = new URL(url).pathname.slice('/harbour/'.length) || 'index.html';
+      const body = await readFile(join(site.dist, decodeURIComponent(path))).catch(() => undefined);
+      if (!body) return problems.push(`not published: ${path}`), route.fulfill({ status: 404, body: '' });
+      fetched.push(path);
+      return route.fulfill({ body, contentType: { '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.html': 'text/html' }[path.match(/\.\w+$/)?.[0]] ?? 'image/jpeg' });
+    });
+    await blog.goto('https://blog.example/post.html');
+
+    const frame = blog.frameLocator('iframe');
+    await frame.locator('.openseadragon-container').first().waitFor();
+    await until(() => fetched.some((path) => path.startsWith('iiif/image/')), 'the picture to load in the frame');
+    assert.equal(await frame.locator('.masthead').count(), 0, 'no header');
+    assert.equal(await frame.locator('.details').count(), 0, 'no details');
+    assert.deepEqual(await frame.locator('.credit span').allTextContents(), ['Harbour at dusk', 'Example Museum']);
+    const back = frame.getByRole('link', { name: 'Open the full page' });
+    assert.equal(await back.getAttribute('href'), 'https://gjh.github.io/harbour/?viewer=openseadragon');
+    assert.equal(await back.getAttribute('target'), '_blank');
+    const pane = await frame.locator('.viewer').boundingBox();
+    assert.ok(pane.width > 790 && pane.height > 520, `the viewer fills the frame (${pane.width}x${pane.height})`);
+    assert.deepEqual(problems, []);
+    await context.close();
   });
 
   test('OpenSeadragon opens first and zooms to full resolution', async () => {

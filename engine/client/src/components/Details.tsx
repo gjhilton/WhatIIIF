@@ -2,8 +2,8 @@ import type { Site } from '../site';
 import { inLanguage } from '../language';
 import { CopyField } from './CopyField';
 
-/** `link` is the address of the page as it is being looked at, view and all. */
-export function Details({ site, language, link }: { site: Site; language: string; link: string }) {
+/** `link` is the address of the page as it is being looked at, view and all; `embed` the HTML that shows that view elsewhere. */
+export function Details({ site, language, link, embed }: { site: Site; language: string; link: string; embed: string }) {
   const { manifestUrl, infoUrl, fullUrl, originalUrl, rights } = site;
   const words = (text: Site['title']) => inLanguage(text, language, site);
   const description = site.description && words(site.description);
@@ -47,6 +47,7 @@ export function Details({ site, language, link }: { site: Site; language: string
         <CopyField label="Manifest URL" value={manifestUrl} />
         <CopyField label="Image service (info.json)" value={infoUrl} />
         <CopyField label="Link to this view" value={link} />
+        <CopyField label="Embed on a web page" value={embed} />
         <p className="links">
           <a href={`https://projectmirador.org/embed/?iiif-content=${encodeURIComponent(manifestUrl)}`}>Open in Mirador</a>
           <a href={`https://uv-v4.netlify.app/#?manifest=${encodeURIComponent(manifestUrl)}`}>Open in Universal Viewer</a>

@@ -40,6 +40,11 @@ a { color: var(--accent); }
 .fallback { max-width: 72rem; margin: 0 auto; padding: 1rem 16px 3rem; }
 .fallback h1 { font: 600 1.5rem/1.2 Georgia, serif; }
 .fallback img { display: block; max-width: 100%; height: auto; margin: 1rem 0; }
+/* The page inside someone else's, from the embed code: the viewer fills the frame above a line of credit. */
+.embed { display: flex; flex-direction: column; height: 100vh; }
+.embed .viewer { flex: 1; height: auto; min-height: 0; }
+.credit { display: flex; gap: 0.25rem; align-items: center; margin: 0; padding: 0.35rem 0.75rem; font-size: 0.85rem; background: var(--surface); border-top: 1px solid var(--line); }
+.credit a { margin-left: auto; text-decoration: none; }
 .load-error { max-width: 40rem; margin: 4rem auto; padding: 0 16px; }
 
 /* A class, not the bare element: Mirador renders a <main> of its own inside the viewer. */

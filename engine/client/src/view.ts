@@ -34,3 +34,9 @@ export function pageLink(site: Site, { viewer, language, region, embed = false }
   const query = [embed && 'embed', `viewer=${viewer}`, site.languages.length > 1 && `lang=${encodeURIComponent(language)}`].filter(Boolean);
   return `${site.pageUrl}?${query.join('&')}${regionHash(region)}`;
 }
+
+const attribute = (text: string) => text.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+
+/** HTML that puts the picture, at the view in `src`, on someone else's web page. */
+export const embedCode = (src: string, title: string) =>
+  `<iframe src="${attribute(src)}" width="800" height="600" style="border:0" allowfullscreen loading="lazy" title="${attribute(title)}"></iframe>`;
