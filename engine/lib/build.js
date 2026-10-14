@@ -83,6 +83,7 @@ export async function build({ contentDir, outDir, env = process.env, log = () =>
     description,
     viewer: config.viewer,
     manifestUrl: manifestId,
+    canvasId: manifest.items[0].id,
     infoUrl: `${imageId}/info.json`,
     fullUrl: hasFull ? `${imageId}/full/max/0/default.jpg` : undefined,
     originalUrl: original,

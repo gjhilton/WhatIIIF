@@ -37,6 +37,7 @@ test('builds a valid service, manifest and site config from a committed image', 
   assert.equal(site.viewer, 'openseadragon');
   assert.equal(site.manifestUrl, 'https://example.org/site/iiif/manifest.json');
   assert.equal(site.infoUrl, 'https://example.org/site/iiif/image/info.json');
+  assert.equal(site.canvasId, manifest.items[0].id);
   assert.deepEqual(site.title, { en: 'Harbour' });
   assert.equal(site.width, 2000);
 });

@@ -9,7 +9,7 @@ import { chromium } from 'playwright';
 import { validate } from '../../lib/validate.js';
 import { inspect, makeImage, makePhonePhoto, makeVariant } from '../fixtures.js';
 import { schemaProblems, schemaUnavailable } from '../schema.js';
-import { browse, commit, deploy, git, run, templateCopy, zoomToFullResolution } from './harness.js';
+import { browse, commit, deploy, git, run, templateCopy, until, zoomToFullResolution } from './harness.js';
 
 const json = async (path) => JSON.parse(await readFile(path, 'utf8'));
 const exists = (path) => access(path).then(() => true, () => false);
@@ -114,6 +114,7 @@ suite('a photographer uploads a phone photo on github.com and fills in every set
     assert.deepEqual(await fields.locator('input').evaluateAll((inputs) => inputs.map((input) => input.value)), [
       'https://gjh.github.io/harbour/iiif/manifest.json',
       'https://gjh.github.io/harbour/iiif/image/info.json',
+      'https://gjh.github.io/harbour/?viewer=openseadragon', // the link to this view: the whole picture, so no fragment
     ]);
     await fields.first().locator('button').click();
     assert.equal(await page.evaluate(() => navigator.clipboard.readText()), 'https://gjh.github.io/harbour/iiif/manifest.json');
@@ -279,6 +280,64 @@ suite('a Welsh archive publishes its image in Welsh and English', () => {
     await close();
 
     assert.deepEqual((await shown({ locale: 'en-GB', query: '?lang=cy' })).title, ['Harbwr', 'cy']);
+  });
+});
+
+suite('a visitor shares the part of the picture they have zoomed into', () => {
+  let site;
+  const tile = (x, y) => `iiif/image/${x},${y},512,512/512,512/0/default.jpg`; // a full-resolution tile
+  const linkToView = (page) => page.getByLabel('Link to this view').inputValue();
+
+  before(async () => {
+    const repo = await templateCopy();
+    await copyFile(await makeImage(4000, 3000), join(repo, 'content/harbour.tif'));
+    await commit(repo, 'Add the image');
+    site = await deploy(repo);
+  });
+
+  for (const viewer of ['openseadragon', 'mirador']) {
+    test(`a link to a region opens ${viewer} on that region, at full resolution`, async () => {
+      const { page, fetched, problems, close } = await open(site, `?viewer=${viewer}#xywh=2000,1500,500,400`);
+      await until(() => fetched.includes(tile(2048, 1536)), 'the full-resolution tile in the middle of the region');
+      assert.equal(fetched.includes(tile(0, 0)), false, 'nothing at full resolution far from the region');
+      // The address names what is on screen: the region asked for, widened to the shape of the pane.
+      const [x, y, w, h] = new URL(page.url()).hash.slice('#xywh='.length).split(',').map(Number);
+      assert.ok(x <= 2002 && y <= 1502 && x + w >= 2498 && y + h >= 1898, `${[x, y, w, h]} holds 2000,1500,500,400`);
+      assert.deepEqual(problems, []);
+      await close();
+    });
+  }
+
+  test('zooming in puts the view in the address and the link field, and that link opens the same view', async () => {
+    const first = await open(site, '?viewer=openseadragon');
+    assert.equal(new URL(first.page.url()).hash, '', 'the whole picture needs no fragment');
+    await zoomToFullResolution(first);
+    await until(() => /^#xywh=\d+,\d+,\d+,\d+$/.test(new URL(first.page.url()).hash), 'the view in the address');
+    const link = await linkToView(first.page);
+    assert.equal(new URL(link).hash, new URL(first.page.url()).hash);
+    assert.ok(link.startsWith(`${site.baseUrl}/?`), link);
+    const [x, y, w, h] = new URL(link).hash.slice('#xywh='.length).split(',').map(Number);
+    await first.close();
+
+    // Whoever opens the link sees full-resolution pixels around the same spot.
+    const centre = tile(Math.floor((x + w / 2) / 512) * 512, Math.floor((y + h / 2) / 512) * 512);
+    const second = await browse(browser, { siteUrl: site.baseUrl, query: new URL(link).search + new URL(link).hash, fileFor: (path) => join(site.dist, path) });
+    await until(() => second.fetched.includes(centre), `the tile at the centre of the shared view (${centre})`);
+    assert.deepEqual(second.problems, []);
+    await second.close();
+  });
+
+  test('switching viewer keeps the view', async () => {
+    const { page, fetched, close } = await open(site, '?viewer=openseadragon#xywh=2000,1500,500,400');
+    await until(() => fetched.includes(tile(2048, 1536)), 'OpenSeadragon on the region');
+    // The tiles are cached by now, so watch the address instead: clear it, and only Mirador reporting the view
+    // it opened on can put the region back.
+    await page.evaluate(() => history.replaceState(null, '', location.pathname + location.search));
+    await page.getByRole('button', { name: 'Mirador' }).click();
+    await until(() => /^#xywh=/.test(new URL(page.url()).hash), 'Mirador to report the view it opened on');
+    const [x, y, w, h] = new URL(page.url()).hash.slice('#xywh='.length).split(',').map(Number);
+    assert.ok(x <= 2002 && y <= 1502 && x + w >= 2498 && y + h >= 1898, `${[x, y, w, h]} holds 2000,1500,500,400`);
+    await close();
   });
 });
 

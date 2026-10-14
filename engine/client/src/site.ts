@@ -20,11 +20,15 @@ export interface Site {
   description?: Text;
   viewer: ViewerId;
   manifestUrl: string;
+  /** The manifest's one canvas; Mirador keeps a starting view only when it is told which canvas to open. */
+  canvasId: string;
   infoUrl: string;
   fullUrl?: string;
   originalUrl?: string;
   width: number;
   height: number;
+  /** The page's own public address. */
+  pageUrl: string;
 }
 
 /** Loaded when the page opens, so the same built page serves any image. */

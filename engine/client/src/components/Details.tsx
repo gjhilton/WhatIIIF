@@ -2,7 +2,8 @@ import type { Site } from '../site';
 import { inLanguage } from '../language';
 import { CopyField } from './CopyField';
 
-export function Details({ site, language }: { site: Site; language: string }) {
+/** `link` is the address of the page as it is being looked at, view and all. */
+export function Details({ site, language, link }: { site: Site; language: string; link: string }) {
   const { manifestUrl, infoUrl, fullUrl, originalUrl, rights } = site;
   const words = (text: Site['title']) => inLanguage(text, language, site);
   const description = site.description && words(site.description);
@@ -45,6 +46,7 @@ export function Details({ site, language }: { site: Site; language: string }) {
         <h2>Use this image in any IIIF viewer</h2>
         <CopyField label="Manifest URL" value={manifestUrl} />
         <CopyField label="Image service (info.json)" value={infoUrl} />
+        <CopyField label="Link to this view" value={link} />
         <p className="links">
           <a href={`https://projectmirador.org/embed/?iiif-content=${encodeURIComponent(manifestUrl)}`}>Open in Mirador</a>
           <a href={`https://uv-v4.netlify.app/#?manifest=${encodeURIComponent(manifestUrl)}`}>Open in Universal Viewer</a>

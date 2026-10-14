@@ -2,7 +2,7 @@ import OpenSeadragon from 'openseadragon';
 import type { ViewerAdapter } from './types';
 
 const adapter: ViewerAdapter = {
-  mount(el, site) {
+  mount(el, site, { region, onRegionChange }) {
     const viewer = OpenSeadragon({
       element: el,
       prefixUrl: `${import.meta.env.BASE_URL}osd-images/`,
@@ -10,6 +10,14 @@ const adapter: ViewerAdapter = {
       showNavigator: true,
       navigatorPosition: 'BOTTOM_RIGHT',
       gestureSettingsMouse: { clickToZoom: false },
+    });
+    viewer.addOnceHandler('open', () => {
+      const image = viewer.world.getItemAt(0);
+      if (region) viewer.viewport.fitBounds(image.imageToViewportRectangle(region.x, region.y, region.w, region.h), true);
+      viewer.addHandler('animation-finish', () => {
+        const { x, y, width, height } = image.viewportToImageRectangle(viewer.viewport.getBounds(true));
+        onRegionChange({ x, y, w: width, h: height });
+      });
     });
     return () => viewer.destroy();
   },

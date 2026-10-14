@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Site, ViewerId } from './site';
 import { chooseLanguage, inLanguage, languageName } from './language';
+import { pageLink, regionFromHash, regionHash, withinImage, type Region } from './view';
 import { viewers } from './viewers';
 import { ViewerPane } from './components/ViewerPane';
 import { Details } from './components/Details';
@@ -20,6 +21,22 @@ const remember = (key: string, value: string) => {
 export function App({ site }: { site: Site }) {
   const [viewer, setViewer] = useState(() => initialViewer(site));
   const [language, setLanguage] = useState(() => chooseLanguage(site));
+  const [region, setRegion] = useState(() => regionFromHash(location.hash, site));
+  const current = useRef(region);
+
+  // Keep the part of the picture on screen in the address, so the address is a link to it.
+  const onRegionChange = useCallback(
+    (seen: Region) => {
+      const next = withinImage(seen, site);
+      current.current = next;
+      setRegion(next);
+      if (location.hash === regionHash(next)) return;
+      const url = new URL(location.href);
+      url.hash = regionHash(next);
+      history.replaceState(null, '', url);
+    },
+    [site],
+  );
   const title = inLanguage(site.title, language, site);
   const summary = site.summary && inLanguage(site.summary, language, site);
   useEffect(() => {
@@ -52,9 +69,9 @@ export function App({ site }: { site: Site }) {
           </div>
         </div>
       </header>
-      <ViewerPane site={site} viewer={viewer} language={language} />
+      <ViewerPane site={site} viewer={viewer} language={language} startAt={current} onRegionChange={onRegionChange} />
       <main className="content">
-        <Details site={site} language={language} />
+        <Details site={site} language={language} link={pageLink(site, { viewer, language, region })} />
       </main>
     </>
   );
