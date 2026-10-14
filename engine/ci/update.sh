@@ -27,7 +27,9 @@ mkdir "$work/src"
 gh api "repos/$UPSTREAM/tarball/$tag" > "$work/release.tgz"
 tar -xzf "$work/release.tgz" --strip-components=1 -C "$work/src"
 
-rsync -a --delete "$work/src/engine/" engine/
+# Replace the engine outright: syncing by size and timestamp can skip a file that changed.
+rm -rf engine
+cp -R "$work/src/engine" engine
 cp "$work/src/package.json" "$work/src/package-lock.json" .
 
 body="Updates the engine, preview page and tooling from **$UPSTREAM** $current → $latest. Your \`content/\` is untouched."

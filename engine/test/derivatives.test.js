@@ -4,7 +4,7 @@ import { readFile, access } from 'node:fs/promises';
 import { join } from 'node:path';
 import { slice } from '../lib/slice.js';
 import { validate } from '../lib/validate.js';
-import { makeImage, makeVariant, makeOriented, makeWideGamut, displayedPixel, orientationTag, pixel, header } from './fixtures.js';
+import { makeImage, makeVariant, makeOriented, makeWideGamut, makeGeotagged, inspect, pixel } from './fixtures.js';
 import { tempDir } from './tmp.js';
 
 const ID = 'https://example.org/iiif/img';
@@ -47,10 +47,8 @@ for (const kind of ['rgb16', 'cmyk', 'grey', 'rgba']) {
   test(`normalises a ${kind} source to 8-bit sRGB tiles`, async () => {
     const out = await outDir();
     await slice({ source: await makeVariant(kind), outDir: out, id: ID });
-    const tile = join(out, 'full/max/0/default.jpg');
-    assert.equal(await header(tile, 'bands'), '3');
-    assert.equal(await header(tile, 'interpretation'), 'srgb');
-    assert.equal(await header(tile, 'format'), 'uchar');
+    const { channels, space, depth } = await inspect(join(out, 'full/max/0/default.jpg'));
+    assert.deepEqual({ channels, space, depth }, { channels: 3, space: 'srgb', depth: 'uchar' });
     assert.deepEqual(await validate(out), []);
   });
 }
@@ -91,7 +89,7 @@ test('leaves no EXIF rotation on published images, which browsers would apply a 
   const out = await outDir();
   await slice({ source: await makeOriented(6), outDir: out, id: ID });
   for (const path of ['full/max/0/default.jpg', 'full/200,300/0/default.jpg']) {
-    assert.equal(await orientationTag(join(out, path)), 1, path);
+    assert.equal((await inspect(join(out, path))).orientation, 1, path);
   }
 });
 
@@ -99,9 +97,17 @@ test('applies an embedded colour profile, so a wide-gamut source shows the same 
   const out = await outDir();
   await slice({ source: await makeWideGamut(), outDir: out, id: ID });
   for (const path of ['0,0,512,500/512,500/0/default.jpg', 'full/350,250/0/default.jpg', 'full/max/0/default.jpg']) {
-    const shown = await displayedPixel(join(out, path), 10, 10);
+    const shown = await pixel(join(out, path), 10, 10);
     for (const [i, want] of [200, 60, 40].entries()) {
       assert.ok(Math.abs(shown[i] - want) <= 4, `${path} shows ${shown}, not 200,60,40`);
     }
+  }
+});
+
+test('publishes none of the EXIF a camera wrote, such as where the photo was taken', async () => {
+  const out = await outDir();
+  await slice({ source: await makeGeotagged(), outDir: out, id: ID });
+  for (const path of ['full/max/0/default.jpg', 'full/350,250/0/default.jpg', '0,0,512,500/512,500/0/default.jpg']) {
+    assert.equal((await inspect(join(out, path))).exif, false, path);
   }
 });

@@ -1,5 +1,4 @@
 node_modules/
 dist/
-engine/client/src/generated/
 .DS_Store
 .playwright-mcp/

@@ -16,7 +16,7 @@ OpenSeadragon (switchable to Mirador) and gives you two URLs to paste into any I
 - **Image service** – `…/iiif/image/info.json`
 
 Large images (over 100 MB) work: `.gitattributes` already sends images in `content/` through Git LFS.
-GitHub's free LFS quota is 1 GB storage and 1 GB bandwidth a month, and each build downloads the image once.
+GitHub's free plans include 10 GiB of LFS storage and 10 GiB of LFS bandwidth a month, and each build downloads the image once.
 
 ## Describe it (optional)
 
@@ -29,13 +29,14 @@ put any other terms in `attribution`.
 
 IIIF Image API 3.0 level 0 tiles (JPEG, sRGB), small whole-image sizes, a full-size JPEG and a Presentation 3.0 manifest.
 Photos are turned upright if the camera only recorded their rotation, and colours are converted to sRGB using the
-image's embedded colour profile, so wide-gamut and CMYK originals look the same at every zoom level.
+image's embedded colour profile, so wide-gamut and CMYK originals look the same at every zoom level. What the camera
+wrote into the file (its model, the time, where the photo was taken) is not published.
 The original file is **not** copied to the site; the manifest links to it in your repository. If the site would exceed
 GitHub Pages' size limit, the full-size JPEG is dropped first. Set `publish.full = false` to skip it.
 
 ## Try it locally
 
-Needs Node 22+ and libvips (`brew install vips` / `apt install libvips-tools`).
+Needs Node 22 or newer, nothing else.
 
 ```sh
 npm install
@@ -44,9 +45,16 @@ npm run preview    # http://localhost:4173
 npm test
 ```
 
-`npm run test:smoke` goes further: it builds sample sites and opens them in a real browser with both viewers,
-failing if either asks for a file that was not published. It needs a browser once:
-`npx playwright install chromium-headless-shell`.
+`npm run test:e2e` goes further. It makes repositories from the template, commits images to them the way people do
+(uploaded on github.com, through Git LFS, with mistakes), runs what the Deploy workflow runs, and opens each site in
+a real browser with both viewers, failing if either asks for a file that was not published. It also runs the Update
+workflow against a stand-in for GitHub. It needs a browser once: `npx playwright install chromium-headless-shell`.
+
+To check a site that is already live, in the same browser:
+
+```sh
+E2E_SITE_URL=https://you.github.io/your-image node --test engine/test/e2e/check-site.js
+```
 
 Locally the manifest and image ids point at `http://localhost:4173`; on GitHub they are derived from your Pages URL
 (or `base_url` in the TOML for a custom domain).

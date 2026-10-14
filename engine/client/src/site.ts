@@ -1,14 +1,13 @@
-import generated from './generated/site.json';
-
 export type ViewerId = 'openseadragon' | 'mirador';
 
-/** Written by engine/build.js from content/ and baked into the bundle at build time. */
+/** Everything the page knows about the image. Written next to the page by engine/build.js. */
 export interface Site {
   title: string;
   summary?: string;
   attribution?: string;
   rights?: string;
   metadata: { label: string; value: string }[];
+  /** HTML made from content/description.md when the site was built. */
   description?: string;
   viewer: ViewerId;
   manifestUrl: string;
@@ -19,4 +18,9 @@ export interface Site {
   height: number;
 }
 
-export const site = generated as Site;
+/** Loaded when the page opens, so the same built page serves any image. */
+export async function loadSite(): Promise<Site> {
+  const response = await fetch('./site.json');
+  if (!response.ok) throw new Error(`site.json answered ${response.status}`);
+  return response.json();
+}
