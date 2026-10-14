@@ -48,6 +48,9 @@ test(`the Update workflow offers ${latest} as a pull request that leaves content
 });
 
 test(`merging it republishes the site on ${latest}`, { skip, timeout: 20 * MINUTE }, async () => {
+  // GitHub works out whether a new pull request can be merged a little after opening it, and refuses until then.
+  await poll(async () => (await ghJson('pr', 'view', String(offer.number), '-R', trial.repository, '--json', 'mergeable')).mergeable === 'MERGEABLE',
+    'the pull request to be mergeable', 5 * MINUTE);
   await gh('pr', 'merge', String(offer.number), '-R', trial.repository, '--merge');
   const { mergeCommit } = await ghJson('pr', 'view', String(offer.number), '-R', trial.repository, '--json', 'mergeCommit');
   assert.equal((await trial.finished(await trial.deployRunFor(mergeCommit.oid))).conclusion, 'success');
