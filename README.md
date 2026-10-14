@@ -28,7 +28,7 @@ For people looking at your picture:
 For you:
 
 - No server and no cost: GitHub builds the site and hosts it.
-- Upload a TIFF, PNG or JPEG of up to 2 GB in the browser ([Large pictures](#large-pictures) shows how). If the
+- Upload a TIFF, PNG, JPEG, WebP, AVIF or GIF of up to 2 GB in the browser ([Large pictures](#large-pictures) shows how). If the
   site would be too big for GitHub Pages, the full-size JPEG is left out to make room.
 - Photos are turned the right way up and their colours kept true. The camera and location details are left out.
 - A title, summary, credit, licence and any other details you like, and a description that can link to parts of the
@@ -44,7 +44,8 @@ For you:
 2. **Switch on GitHub Pages.** In your new repository open **Settings → Pages**. Under **Source**, choose
    **GitHub Actions**.
 3. **Add your picture.** Go to the **Code** tab, open the **content** folder, and choose
-   **Add file → Upload files**. Drop in one TIFF, PNG or JPEG, then click **Commit changes**.
+   **Add file → Upload files**. Drop in one TIFF, PNG or JPEG (WebP, AVIF and GIF work too), then click
+   **Commit changes**.
 4. **Wait a minute or two.** The **Actions** tab shows your site being built. A green tick means it is ready.
 5. **Visit your site** at `https://YOUR-USERNAME.github.io/YOUR-REPOSITORY/`. The address is also shown under
    **Settings → Pages**.
@@ -110,6 +111,7 @@ Most messages say what to fix; for some, this table says more:
 | GitHub Pages is not enabled | Do step 2 above, then click **Re-run jobs**. |
 | content/ must contain exactly one image | Delete the extra pictures from `content`. |
 | … is not supported yet | Save the picture as TIFF, PNG or JPEG and upload that instead. |
+| … is an iPhone photo (HEIC) | Make it a JPEG: on a Mac, open it in Preview and choose **File → Export**, then JPEG. |
 | content/whatiiif.toml: … | Fix the setting it names; the message says how. |
 | Could not download the picture at … | Check the `picture` link: paste it into a private browser window, and it should download the picture. |
 | Timeout reached, or Deployment cancelled | GitHub Pages was slow. Re-running may not help: make any small change, such as a line in `content/whatiiif.toml`, and commit it to start afresh. |

@@ -605,8 +605,13 @@ const mistakes = [
   },
   {
     name: 'commits a format that cannot be read yet',
-    files: { 'scan.heic': 'x' },
-    says: /Build failed: scan\.heic is not supported yet\. Convert it to TIFF, PNG or JPEG/,
+    files: { 'scan.jp2': 'x' },
+    says: /Build failed: scan\.jp2 is not supported yet\. Convert it to TIFF, PNG or JPEG and commit that in content\/ instead\./,
+  },
+  {
+    name: 'uploads a photo straight from their iPhone',
+    files: { 'IMG_0001.HEIC': 'x' },
+    says: /Build failed: IMG_0001\.HEIC is an iPhone photo \(HEIC\), which cannot be read here\. Make it a JPEG first/,
   },
   {
     name: 'misspells a setting',

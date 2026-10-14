@@ -32,6 +32,19 @@ test('tells the user to convert unsupported formats', async () => {
   await assert.rejects(findImage(await named('scan.jp2')), /scan\.jp2.*not supported.*convert.*tiff/is);
 });
 
+test('accepts the formats the web uses: WebP, AVIF and GIF', async () => {
+  for (const [name, format] of [['view.webp', 'image/webp'], ['view.AVIF', 'image/avif'], ['view.gif', 'image/gif']]) {
+    assert.equal((await findImage(await named(name))).format, format, name);
+  }
+});
+
+test('an iPhone photo (HEIC) gets its own explanation of how to make it a JPEG', async () => {
+  await assert.rejects(
+    findImage(await named('IMG_0001.HEIC')),
+    /IMG_0001\.HEIC is an iPhone photo \(HEIC\), which cannot be read here\. Make it a JPEG first: on a Mac, open it in Preview and choose File → Export, then JPEG\./,
+  );
+});
+
 test('with nothing but a picture, the settings are the defaults, and the title and alt text are the file name', async () => {
   const { image, config, description, languages, notes } = await readContent(await named('Harbour view.jpg', '.gitkeep', '.DS_Store'));
   assert.equal(image.format, 'image/jpeg');
@@ -105,6 +118,12 @@ test('a picture given by its link is downloaded and named after its file', async
   assert.deepEqual(config.title, { en: 'Harbour scan' });
 });
 
+test('a WebP picture given by its link is read as one', async () => {
+  const webp = await sharp({ create: { width: 3, height: 2, channels: 3, background: '#808080' } }).webp().toBuffer();
+  const { image } = await readContent(await linked(), { fetch: web({ body: webp }).fetch, downloads: await tempDir('downloads') });
+  assert.equal(image.format, 'image/webp');
+});
+
 test('a picture given by its link is told apart by what it holds, not what it is called', async () => {
   const png = await sharp({ create: { width: 3, height: 2, channels: 3, background: '#808080' } }).png().toBuffer();
   const link = 'https://example.org/download?id=42';
@@ -116,7 +135,8 @@ test('a picture given by its link is told apart by what it holds, not what it is
 const badLinks = [
   ['a link that leads nowhere', { status: 404 }, /Could not download the picture at https:\/\/github\.com\/gjh\/harbour\/releases\/download\/picture\/Harbour%20scan\.tif: the server answered 404\. Check that the link is right and that anyone can open it/],
   ['a link to a web page about the picture', { body: '\n<!DOCTYPE html><html>' }, /is a web page, not a picture\. Use a link that downloads the picture itself/],
-  ['a picture in a format that cannot be read yet', { body: Buffer.from('RIFF\0\0\0\0WEBPVP8 ') }, /The picture at .* is a WebP, which is not supported yet\. Convert it to TIFF, PNG or JPEG/],
+  ['a picture in a format that cannot be read yet', { body: Buffer.from('\0\0\0\x18ftypheic\0\0\0\0') }, /The picture at .* is an iPhone photo \(HEIC\), which cannot be read here\. Make it a JPEG first/],
+  ['a JPEG 2000 file', { body: Buffer.from([0, 0, 0, 0x0c, 0x6a, 0x50, 0x20, 0x20, 0x0d, 0x0a]) }, /The picture at .* is a JPEG 2000 file, which is not supported yet\. Convert it to TIFF, PNG or JPEG/],
   ['something that is not a picture at all', { body: 'PK\x03\x04' }, /The picture at .* is not a TIFF, PNG or JPEG/],
 ];
 

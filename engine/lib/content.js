@@ -7,7 +7,7 @@ import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { Marked } from 'marked';
 import { LANGUAGE_EXAMPLE, languageCode, parseConfig } from './config.js';
-import { findImage, listImages, sniff } from './source.js';
+import { cannotRead, findImage, listImages, sniff } from './source.js';
 import { closest } from './spelling.js';
 
 const DESCRIPTION = /^description(?:\.([^.]+))?\.md$/;
@@ -74,11 +74,9 @@ async function download(url, dir, fetch) {
     throw new Error(`${url} is a web page, not a picture. Use a link that downloads the picture itself: on GitHub, the link of the file under a release's Assets.`);
   }
   if (!format) {
-    throw new Error(
-      name
-        ? `The picture at ${url} is a ${name}, which is not supported yet. Convert it to TIFF, PNG or JPEG and link to that instead.`
-        : `The picture at ${url} is not a TIFF, PNG or JPEG.`,
-    );
+    if (!name) throw new Error(`The picture at ${url} is not a TIFF, PNG or JPEG.`);
+    const told = cannotRead(`The picture at ${url}`, name);
+    throw new Error(name === 'HEIC' ? told : `${told} and link to that instead.`);
   }
   const file = basename(new URL(url).pathname);
   let fileName;
