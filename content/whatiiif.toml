@@ -7,6 +7,7 @@
 # attribution = "Credit line, e.g. Example Museum"
 # alt = "What the picture shows, for people who cannot see it"   # defaults to the title
 # rights = "https://creativecommons.org/licenses/by/4.0/"   # a Creative Commons or RightsStatements.org URL
+# picture = "https://github.com/you/your-image/releases/download/picture/scan.tif"   # a picture too big to upload, by its link
 # viewer = "openseadragon"      # or "mirador"; visitors can switch on the page
 # base_url = "https://my-domain.example"   # only for a custom domain
 
@@ -23,3 +24,10 @@
 
 # [publish]
 # full = true                   # false = no full-size JPEG download (saves site space)
+# original = true               # false = no link to download the picture as you committed it
+
+# [colours]                     # your own, in place of black on white (and white on black in dark mode)
+# paper = "#fdf6e3"             # the background
+# ink = "#222222"               # text, lines, and the button that is selected
+# viewer = "#fdf6e3"            # behind the picture
+# error = "#cc0000"             # messages about something that went wrong
