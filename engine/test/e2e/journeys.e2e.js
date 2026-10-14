@@ -43,10 +43,9 @@ suite('a photographer uploads a phone photo on github.com and fills in every set
         'attribution = "Example Museum"',
         'alt = "Fishing boats coming into the harbour at dusk"',
         'rights = "https://creativecommons.org/licenses/by/4.0/deed.en"', // as copied from the licence's page
-        '',
-        '[[metadata]]',
-        'label = "Date"',
-        'value = "1890"',
+        'creator = "A. Photographer"',
+        'date = "1890"',
+        'dimensions = "30 x 40 cm"',
         '',
         '[[metadata]]',
         'label = "Source"',
@@ -83,7 +82,9 @@ suite('a photographer uploads a phone photo on github.com and fills in every set
     assert.deepEqual(manifest.requiredStatement.value, { en: ['Example Museum'] });
     assert.equal(manifest.rights, 'http://creativecommons.org/licenses/by/4.0/');
     assert.deepEqual(manifest.metadata, [
+      { label: { en: ['Creator'] }, value: { en: ['A. Photographer'] } },
       { label: { en: ['Date'] }, value: { en: ['1890'] } },
+      { label: { en: ['Dimensions'] }, value: { none: ['30 × 40 cm'] } },
       { label: { en: ['Source'] }, value: { en: ['https://archives.example.org/collections/harbour-views/1890/plate-17'] } },
     ]);
     assert.deepEqual([manifest.items[0].width, manifest.items[0].height], [1200, 1600]);
@@ -105,9 +106,10 @@ suite('a photographer uploads a phone photo on github.com and fills in every set
     assert.equal(await page.locator('.prose em').textContent(), 'north');
     const rows = await page.locator('.meta tr').evaluateAll((trs) => trs.map((tr) => [...tr.children].map((cell) => cell.textContent)));
     assert.deepEqual(rows, [
+      ['Creator', 'A. Photographer'],
       ['Date', '1890'],
       ['Source', 'https://archives.example.org/collections/harbour-views/1890/plate-17'],
-      ['Dimensions', '1,200 × 1,600 px'],
+      ['Dimensions', '30 × 40 cm (1,200 × 1,600 px)'],
       ['Attribution', 'Example Museum'],
       ['Rights', 'CC BY 4.0'],
     ]);
@@ -126,13 +128,19 @@ suite('a photographer uploads a phone photo on github.com and fills in every set
     await close();
   });
 
-  test('the links to share the view, and the manifest and image service addresses, are shown and can be copied', async () => {
+  const citationToday = (link) => {
+    const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+    return `A. Photographer (1890) Harbour at dusk. Example Museum. Available at: ${link} (Accessed: ${today}).`;
+  };
+
+  test('the links to share and cite the view, and the manifest and image service addresses, are shown and can be copied', async () => {
     const { page, close } = await open(site);
     const fields = page.locator('.copy-field');
     await fields.first().waitFor();
     assert.deepEqual(await fields.locator('input').evaluateAll((inputs) => inputs.map((input) => input.value)), [
       'https://gjh.github.io/harbour/?viewer=openseadragon', // the link to this view: the whole picture, so no fragment
       '<iframe src="https://gjh.github.io/harbour/?embed&amp;viewer=openseadragon" width="800" height="1067" style="border:0;width:100%;max-width:800px;height:auto;aspect-ratio:800/1067" allowfullscreen loading="lazy" title="Harbour at dusk"></iframe>',
+      citationToday('https://gjh.github.io/harbour/?viewer=openseadragon'),
       'https://gjh.github.io/harbour/iiif/manifest.json',
       'https://gjh.github.io/harbour/iiif/image/info.json',
     ]);
@@ -285,6 +293,38 @@ suite('a photographer uploads a phone photo on github.com and fills in every set
     await until(() => new URL(page.url()).hash.startsWith('#xywh='), 'the closer view to reach the address');
     await controls.getByRole('button', { name: 'Show the whole picture' }).click();
     await until(() => new URL(page.url()).hash === '', 'the whole picture, which needs no fragment');
+    await close();
+  });
+
+  test('a scale bar measures the picture against its real size, and keeps to round lengths as the visitor zooms', async () => {
+    const { page, close } = await open(site, '?viewer=openseadragon');
+    const bar = page.locator('.scale-bar');
+    await page.locator('.openseadragon-container').first().waitFor();
+    await page.waitForLoadState('networkidle');
+    // The whole 30 cm width, 1,200 pixels, fits a pane 648 pixels high at 4:3, about 486 pixels across: 1 cm is about 16.
+    await until(async () => (await bar.textContent()) === '5 cm', 'the scale bar to say 5 cm');
+    const width = (await bar.boundingBox()).width;
+    assert.ok(width > 70 && width < 90, `5 cm is ${width} pixels across, borders and all`);
+    await page.getByRole('button', { name: 'Zoom in' }).click();
+    await until(async () => ['1 cm', '2 cm'].includes(await bar.textContent()), 'a shorter length closer up');
+    await close();
+  });
+
+  test('printed, the page shows the view as it was on screen, the details and the citation, black on white', async () => {
+    const { page, close } = await open(site, '?viewer=openseadragon#xywh=200,300,400,500', { colorScheme: 'dark' });
+    await page.locator('.openseadragon-container').first().waitFor();
+    await page.waitForLoadState('networkidle');
+    await page.evaluate(() => dispatchEvent(new Event('beforeprint')));
+    await page.emulateMedia({ media: 'print' });
+    const view = page.locator('.print-view');
+    assert.equal(await view.isVisible(), true);
+    assert.equal(await view.evaluate((img) => img.naturalWidth > 0 && img.src.startsWith('data:image/jpeg')), true, 'a still of the view');
+    assert.equal(await page.locator('.details .uses').isVisible(), false, 'no copy fields on paper');
+    assert.equal(await page.locator('.print-only p').textContent(), citationToday(page.url()));
+    assert.deepEqual(await page.evaluate(() => [getComputedStyle(document.body).backgroundColor, getComputedStyle(document.body).color]), ['rgb(255, 255, 255)', 'rgb(0, 0, 0)']);
+    await page.emulateMedia({ media: 'screen' });
+    await page.evaluate(() => dispatchEvent(new Event('afterprint')));
+    assert.equal(await view.count(), 0, 'gone again after printing');
     await close();
   });
 

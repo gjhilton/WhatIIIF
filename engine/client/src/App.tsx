@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Site, ViewerId } from './site';
 import { chooseLanguage, inLanguage, languageName } from './language';
 import { embedCode, linkTo, readAddress, withChoice, withRegion, withinImage, type Region } from './address';
+import { citation } from './describe';
 import { viewers } from './viewers';
 import { ViewerPane } from './components/ViewerPane';
 import { Details } from './components/Details';
@@ -97,6 +98,7 @@ export function App({ site }: { site: Site }) {
           language={language}
           link={link}
           embed={embedCode(linkTo(site, { viewer, language, region, embed: true }), title.text, site)}
+          cite={citation(site, language, link, new Date())}
           show={show}
         />
       </main>

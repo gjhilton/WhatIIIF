@@ -2,6 +2,7 @@ import OpenSeadragon from 'openseadragon';
 import type { ViewerAdapter } from './types';
 import type { Region } from '../address';
 import { pageColour } from '../colours';
+import { scaleLength } from '../describe';
 
 // The buttons' pictures: lines in the text colour, on a 20-unit square.
 const ICONS = {
@@ -67,6 +68,25 @@ const adapter: ViewerAdapter = {
       fullScreen.setAttribute('aria-label', label);
       fullScreen.innerHTML = icon(fullPage ? ICONS.leaveFullScreen : ICONS.enterFullScreen);
     });
+
+    // A picture whose real size is known has a scale bar, kept to a round length as the visitor zooms.
+    const { dimensions } = site;
+    if (dimensions) {
+      const bar = document.createElement('div');
+      bar.className = 'scale-bar';
+      bar.setAttribute('aria-hidden', 'true'); // the details give the size in words
+      const scaleHolder = document.createElement('div');
+      scaleHolder.append(bar);
+      viewer.addControl(scaleHolder, { anchor: OpenSeadragon.ControlAnchor.BOTTOM_LEFT, autoFade: false });
+      viewer.addHandler('update-viewport', () => {
+        const image = viewer.world.getItemAt(0);
+        if (!image) return;
+        const onScreen = image.viewportToImageZoom(viewer.viewport.getZoom(true)); // screen pixels to one of the picture's
+        const { pixels, label } = scaleLength(dimensions.width / site.width / onScreen, dimensions.unit);
+        bar.style.width = `${Math.round(pixels)}px`;
+        bar.textContent = label;
+      });
+    }
 
     viewer.addHandler('open-failed', ({ message }) => onError(`The picture could not be opened: ${message}`));
     let opened = false;

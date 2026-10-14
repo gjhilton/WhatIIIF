@@ -12,19 +12,24 @@ interface Props {
   link: string;
   /** The HTML that shows that view on another page. */
   embed: string;
+  /** A citation of that view. */
+  cite: string;
   /** Moves the viewer to a part of the picture, as a detail link in the description asks. */
   show: (region: Region) => void;
 }
 
-export function Details({ site, language, link, embed, show }: Props) {
+export function Details({ site, language, link, embed, cite, show }: Props) {
   const { manifestUrl, infoUrl, fullUrl, originalUrl, rights } = site;
   const words = (text: Site['title']) => inLanguage(text, language, site);
   const description = site.description && words(site.description);
   const attribution = site.attribution && words(site.attribution);
-  // [label, value], each with the language it is in; our own label and the dimensions need none
+  // [label, value], each with the language it is in; our own labels and the dimensions need none
+  const pixels = `${site.width.toLocaleString()} × ${site.height.toLocaleString()} px`;
   const rows: { text: string; lang?: string }[][] = [
+    ...(site.creator ? [[{ text: 'Creator' }, words(site.creator)]] : []),
+    ...(site.date ? [[{ text: 'Date' }, words(site.date)]] : []),
     ...site.metadata.map(({ label, value }) => [words(label), words(value)]),
-    [{ text: 'Dimensions' }, { text: `${site.width.toLocaleString()} × ${site.height.toLocaleString()} px` }],
+    [{ text: 'Dimensions' }, { text: site.dimensions ? `${site.dimensions.text} (${pixels})` : pixels }],
   ];
 
   // A link in the description to a part of the picture moves the viewer there rather than opening the page again.
@@ -66,10 +71,11 @@ export function Details({ site, language, link, embed, show }: Props) {
         </table>
       </section>
 
-      <section>
+      <section className="uses">
         <h2>Share this view</h2>
         <CopyField label="Link to this view" value={link} />
         <CopyField label="Embed on a web page" value={embed} />
+        <CopyField label="Cite this view" value={cite} />
 
         <h2>Use it in any IIIF viewer</h2>
         <CopyField label="Manifest URL" value={manifestUrl} />
@@ -94,6 +100,12 @@ export function Details({ site, language, link, embed, show }: Props) {
             </p>
           </>
         )}
+      </section>
+
+      {/* On paper the copy fields are no use: the citation, with its link, is written out instead. */}
+      <section className="print-only">
+        <h2>Cite this view</h2>
+        <p>{cite}</p>
       </section>
     </div>
   );

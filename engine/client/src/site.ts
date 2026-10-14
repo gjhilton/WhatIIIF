@@ -11,10 +11,14 @@ export interface Site {
   languages: string[];
   title: Text;
   summary?: Text;
+  creator?: Text;
+  date?: Text;
   attribution?: Text;
   /** Describes the image for people who cannot see it. */
   alt: Text;
   rights?: string;
+  /** How big the original is, which gives the picture a scale. */
+  dimensions?: { width: number; height: number; unit: 'mm' | 'cm' | 'm' | 'in'; text: string };
   metadata: { label: Text; value: Text }[];
   /** HTML made from content/description*.md when the site was built. */
   description?: Text;

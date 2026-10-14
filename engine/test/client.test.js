@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { embedCode, linkTo, readAddress, regionLinked, withChoice, withRegion } from '../client/src/address.ts';
-import { fileSize, formatName, rightsName } from '../client/src/describe.ts';
+import { citation, fileSize, formatName, rightsName, scaleLength } from '../client/src/describe.ts';
 import { chooseLanguage, inLanguage } from '../client/src/language.ts';
 
 const site = { width: 4000, height: 3000, pageUrl: 'https://gjh.github.io/harbour/', language: 'en', languages: ['en'] };
@@ -133,3 +133,37 @@ test('a text missing in the language shown is given in the site’s own, else in
   assert.deepEqual(inLanguage({ de: 'Hafen' }, 'en', welsh), { text: 'Hafen', lang: 'de' });
   assert.deepEqual(inLanguage({ none: '1890' }, 'en', welsh), { text: '1890', lang: undefined });
 });
+
+// A citation names what is cited as a reader of the page sees it: in their language, at the view they are looking at.
+const viewed = new Date(2026, 9, 15);
+const link = 'https://gjh.github.io/harbour/?viewer=openseadragon#xywh=1,2,3,4';
+const cited = { ...welsh, title: { en: 'Harbour at dusk', cy: 'Harbwr' }, metadata: [] };
+
+test('a citation gives who made the picture and when, its title, its credit, the link to the view, and the day it was viewed', () => {
+  const site = { ...cited, creator: { en: 'J. M. W. Turner' }, date: { en: 'about 1890' }, attribution: { en: 'Example Museum' } };
+  assert.equal(
+    citation(site, 'en', link, viewed),
+    'J. M. W. Turner (about 1890) Harbour at dusk. Example Museum. Available at: https://gjh.github.io/harbour/?viewer=openseadragon#xywh=1,2,3,4 (Accessed: 15 October 2026).',
+  );
+});
+
+test('a citation leaves out what the site does not say, and is in the language the visitor reads', () => {
+  assert.equal(citation(cited, 'cy', link, viewed), `Harbwr. Available at: ${link} (Accessed: 15 October 2026).`);
+  assert.equal(citation({ ...cited, date: { en: '1890' }, attribution: { en: 'Example Museum.' } }, 'en', link, viewed), `Harbour at dusk (1890). Example Museum. Available at: ${link} (Accessed: 15 October 2026).`);
+});
+
+// A scale bar of the longest round length (1, 2 or 5, times a power of ten) that is no more than 100 pixels long.
+const scales = [
+  [0.02, 'cm', { pixels: 100, label: '2 cm' }],
+  [0.2, 'mm', { pixels: 100, label: '2 cm' }],
+  [0.005, 'mm', { pixels: 100, label: '0.5 mm' }],
+  [1, 'cm', { pixels: 100, label: '1 m' }],
+  [0.03, 'm', { pixels: 66.66666666666667, label: '2 m' }],
+  [0.01, 'in', { pixels: 100, label: '1 in' }],
+  [0.15, 'in', { pixels: 66.66666666666667, label: '10 in' }],
+];
+for (const [perPixel, unit, bar] of scales) {
+  test(`at ${perPixel} ${unit} a pixel, the scale bar shows ${bar.label}`, () => {
+    assert.deepEqual(scaleLength(perPixel, unit), bar);
+  });
+}
