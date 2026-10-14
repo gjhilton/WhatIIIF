@@ -3,9 +3,9 @@
 // commit of it. Run by hand with `npm run test:live` (see trial.js).
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { copyFile, stat, writeFile } from 'node:fs/promises';
+import { stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { makeImage } from '../support/fixtures.js';
+import sharp from 'sharp';
 import { tempDir } from '../support/tmp.js';
 import { MINUTE, gh, ghJson, git, trialRepository } from './trial.js';
 
@@ -18,9 +18,11 @@ before(async () => {
 after(() => trial?.remove());
 
 test('a picture in a release, linked from whatiiif.toml, is published, and downloads from the release', { timeout: 30 * MINUTE }, async () => {
-  // About 50 MB: twice what the browser uploads into content/.
+  // About 50 MB, uncompressed: twice what the browser uploads into content/.
   const picture = join(await tempDir('release'), 'Harbour scan.tif');
-  await copyFile(await makeImage(5000, 3500), picture);
+  await sharp({ create: { width: 5000, height: 3500, channels: 3, noise: { type: 'gaussian', mean: 128, sigma: 40 } } })
+    .tiff({ compression: 'none' })
+    .toFile(picture);
   const { size } = await stat(picture);
   assert.ok(size > 25 * 1024 * 1024, `the picture is ${size} bytes`);
 
