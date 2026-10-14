@@ -7,7 +7,7 @@ import { PAGES_BUDGET_BYTES, applyBudget } from './budget.js';
 import { missingFiles } from './service.js';
 import { buildManifest } from './manifest.js';
 import { committedToLfs, originalUrl, repositoryIsPublic } from './original.js';
-import { cardImage, makeIcon, personalisePage } from './page.js';
+import { makeCard, makeIcon, personalisePage, wholeImage } from './page.js';
 
 const LOCAL_BASE_URL = 'http://localhost:4173';
 const LOWEST_QUALITY = 45; // below this, JPEG tiles look blocky up close
@@ -110,9 +110,11 @@ export async function build({ contentDir, outDir, env = process.env, log = () =>
       pageUrl,
     };
     await writeFile(join(outDir, 'site.json'), JSON.stringify(site, null, 2));
-    const card = cardImage({ info, imageId });
-    await makeIcon(join(imageDir, card.path), join(outDir, 'icon.png'));
-    await personalisePage(join(outDir, 'index.html'), { site, image: card });
+    // The icon and the picture a shared link shows, cut from whole-picture files already published.
+    const whole = wholeImage({ info, imageId });
+    await makeIcon(join(imageDir, whole.path), join(outDir, 'icon.png'));
+    const card = { url: `${pageUrl}card.jpg`, ...(await makeCard(join(imageDir, wholeImage({ info, imageId, maxSide: 2000 }).path), join(outDir, 'card.jpg'))) };
+    await personalisePage(join(outDir, 'index.html'), { site, image: whole, card });
 
     log(`Done: ${Math.round(bytes / 1024 / 1024)} MB of IIIF files at ${baseUrl}/iiif/`);
     return { baseUrl, pageUrl, manifestId, bytes, droppedFull, image, card, site };

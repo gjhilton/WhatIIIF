@@ -161,9 +161,8 @@ suite('a photographer uploads a phone photo on github.com and fills in every set
     assert.equal(meta('og:description'), 'The fishing fleet coming in.');
     assert.equal(meta('og:url'), 'https://gjh.github.io/harbour/');
     assert.equal(meta('og:image:alt'), 'Fishing boats coming into the harbour at dusk');
-    const picture = meta('og:image');
-    assert.ok(picture.startsWith('https://gjh.github.io/harbour/iiif/image/full/'), picture);
-    assert.equal(await exists(join(site.dist, picture.slice('https://gjh.github.io/harbour/'.length))), true);
+    assert.equal(meta('og:image'), 'https://gjh.github.io/harbour/card.jpg');
+    assert.equal(await exists(join(site.dist, 'card.jpg')), true);
   });
 
   test('without JavaScript the page still shows the picture, described, with its links', async () => {

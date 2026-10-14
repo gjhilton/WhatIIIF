@@ -96,9 +96,9 @@ test('personalises the built page: a social card showing a published picture, an
 
   assert.equal((await read(join(out, 'site.json'))).pageUrl, 'https://example.org/site/');
   const html = await readFile(join(out, 'index.html'), 'utf8');
-  const card = html.match(/<meta property="og:image" content="https:\/\/example\.org\/site\/(iiif\/image\/full\/[^"]+)">/);
-  assert.ok(card, 'the card picture is an absolute address on the site');
-  assert.deepEqual(await readdir(join(out, card[1], '..')), ['default.jpg'], 'and that file is published');
+  assert.ok(html.includes('<meta property="og:image" content="https://example.org/site/card.jpg">'), 'the card picture is an absolute address on the site');
+  const { width, height, format } = await sharp(join(out, 'card.jpg')).metadata();
+  assert.deepEqual({ width, height, format }, { width: 1200, height: 630, format: 'jpeg' }, 'in the shape social sites show');
   assert.ok(html.includes('alt="Fishing boats at dusk"'));
 });
 
@@ -202,7 +202,7 @@ test('in a workflow run, anything worth a look is a warning, and the summary say
   assert.match(summary, /\*\*https:\/\/gjh\.github\.io\/harbour\/\*\*/);
   assert.match(summary, /\| Picture \| harbour\.tif, 2,000 × 1,500 pixels \|/);
   assert.match(summary, /\| IIIF manifest \| https:\/\/gjh\.github\.io\/harbour\/iiif\/manifest\.json \|/);
-  assert.match(summary, /!\[Harbour\]\(https:\/\/gjh\.github\.io\/harbour\/iiif\/image\/full\/[^)]+\)/);
+  assert.match(summary, /!\[Harbour\]\(https:\/\/gjh\.github\.io\/harbour\/card\.jpg\)/, 'the picture a shared link shows');
   assert.match(summary, /- content\/descripton\.md is not used/);
 });
 
