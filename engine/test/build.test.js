@@ -202,6 +202,7 @@ test('in a workflow run, anything worth a look is a warning, and the summary say
   assert.match(summary, /\*\*https:\/\/gjh\.github\.io\/harbour\/\*\*/);
   assert.match(summary, /\| Picture \| harbour\.tif, 2,000 × 1,500 pixels \|/);
   assert.match(summary, /\| IIIF manifest \| https:\/\/gjh\.github\.io\/harbour\/iiif\/manifest\.json \|/);
+  assert.match(summary, /\| Settings \| \[Change them with the settings helper\]\(https:\/\/gjh\.github\.io\/harbour\/settings\.html\) \|/);
   assert.match(summary, /!\[Harbour\]\(https:\/\/gjh\.github\.io\/harbour\/card\.jpg\)/, 'the picture a shared link shows');
   assert.match(summary, /- content\/descripton\.md is not used/);
 });
@@ -255,4 +256,14 @@ test('dimensions that are not the shape of the picture are worth a look', async 
   assert.deepEqual(warnings, [
     'The dimensions, 120 × 80 cm, are not the shape of the picture, 2,000 × 1,500 pixels: is one of them wrong, or the picture cropped? Measurements follow the width.',
   ]);
+});
+
+test('the settings helper is given the settings as written, and where to change them on GitHub', async () => {
+  const { content, out } = await setup('summary = "A view"\n[tiles]\nquality = 70');
+  await build({ contentDir: content, outDir: out, env: github });
+  const { settings, editUrl } = await read(join(out, 'settings.json'));
+  assert.deepEqual(settings.summary, { en: 'A view' });
+  assert.equal(settings.title, undefined, 'not the title made from the file name, which was not written');
+  assert.equal(settings.tiles.quality, 70);
+  assert.equal(editUrl, 'https://github.com/gjh/harbour/edit/main/content/whatiiif.toml');
 });

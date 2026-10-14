@@ -18,6 +18,7 @@ export function builtSummary({ pageUrl, manifestId, bytes, droppedFull, image, c
     ['Picture', `${plain(image.name)}, ${number(site.width)} × ${number(site.height)} pixels`],
     ['Published', `${megabytes(bytes)} of tiles${site.fullUrl ? ' and a full-size JPEG' : droppedFull ? ', without the full-size JPEG, to fit GitHub Pages' : ''}`],
     ['IIIF manifest', manifestId],
+    ['Settings', `[Change them with the settings helper](${pageUrl}settings.html)`],
   ];
   return [
     '## Your picture is on its way',

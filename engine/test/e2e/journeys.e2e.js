@@ -8,6 +8,7 @@ import { createServer } from 'node:http';
 import { join } from 'node:path';
 import { chromium } from 'playwright';
 import { missingFiles } from '../../lib/service.js';
+import { parseConfig } from '../../lib/config.js';
 import { inspect, makeImage, makePhonePhoto, makeVariant } from '../support/fixtures.js';
 import { schemaProblems, schemaUnavailable } from '../support/schema.js';
 import { browse, commit, deploy, git, run, templateCopy, until, zoomToFullResolution } from '../support/harness.js';
@@ -325,6 +326,31 @@ suite('a photographer uploads a phone photo on github.com and fills in every set
     await page.emulateMedia({ media: 'screen' });
     await page.evaluate(() => dispatchEvent(new Event('afterprint')));
     assert.equal(await view.count(), 0, 'gone again after printing');
+    await close();
+  });
+
+  test('the settings helper starts from the settings as they are, and writes a file the build accepts, saying what is wrong when it is not', async () => {
+    const { page, problems, close } = await open(site, 'settings.html');
+    const file = page.getByRole('textbox', { name: 'whatiiif.toml' });
+    await file.waitFor();
+    assert.equal(await page.title(), 'Settings: Harbour at dusk');
+    assert.equal(await page.getByRole('textbox', { name: 'Title', exact: true }).inputValue(), 'Harbour at dusk');
+
+    await page.getByRole('textbox', { name: 'Title', exact: true }).fill('Harbour at night');
+    const { settings } = await json(join(site.dist, 'settings.json'));
+    const asJson = (value) => JSON.parse(JSON.stringify(value)); // as settings.json has them, unset settings left out
+    assert.deepEqual(asJson(parseConfig(await file.inputValue())), { ...settings, title: { en: 'Harbour at night' } }, 'everything else as it was');
+
+    const size = page.getByRole('textbox', { name: 'Real size' });
+    await size.fill('big');
+    assert.match(await page.getByRole('alert').textContent(), /"dimensions" must be the width and height of the original/);
+    await size.fill('30 × 40 cm');
+    assert.equal(await page.getByRole('alert').count(), 0);
+
+    await page.getByRole('button', { name: 'Copy' }).click();
+    assert.equal(await page.evaluate(() => navigator.clipboard.readText()), await file.inputValue());
+    assert.equal(await page.getByRole('link', { name: 'Open whatiiif.toml on GitHub' }).getAttribute('href'), 'https://github.com/gjh/harbour/edit/main/content/whatiiif.toml');
+    assert.deepEqual(problems, []);
     await close();
   });
 

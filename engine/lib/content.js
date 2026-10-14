@@ -97,8 +97,8 @@ function languagesOf(language, texts) {
 
 /**
  * Everything in `dir` that the site is made from: the picture, the settings with their defaults, the description
- * as HTML (a language map, like every text), every language any of those texts is in, and `notes` on files in
- * `dir` that are not used. A picture named by its link in the settings is downloaded into `downloads` with `fetch`.
+ * as HTML (a language map, like every text), every language any of those texts is in, `notes` on files in `dir`
+ * that are not used, and the `settings` as written, without the defaults that come from the picture. A picture named by its link in the settings is downloaded into `downloads` with `fetch`.
  */
 export async function readContent(dir, { fetch = globalThis.fetch, downloads } = {}) {
   const files = (await readdir(dir)).sort();
@@ -121,5 +121,5 @@ export async function readContent(dir, { fetch = globalThis.fetch, downloads } =
   const description = await descriptions(dir, files, config.language);
   const { summary, creator, date, attribution, alt, metadata } = config;
   const texts = [title, summary, creator, date, attribution, alt, description, ...metadata.flatMap(({ label, value }) => [label, value])];
-  return { image, config, description, languages: languagesOf(config.language, texts), notes: unused(files, pictures, image) };
+  return { image, config, settings, description, languages: languagesOf(config.language, texts), notes: unused(files, pictures, image) };
 }

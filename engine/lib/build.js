@@ -35,7 +35,7 @@ async function original(image, config, env) {
 export async function build({ contentDir, outDir, env = process.env, log = () => {}, warn = log, fetch = globalThis.fetch, budgetBytes = PAGES_BUDGET_BYTES }) {
   const downloads = await mkdtemp(join(tmpdir(), 'whatiiif-picture-'));
   try {
-    const { image, config, description, languages, notes } = await readContent(contentDir, { fetch, downloads });
+    const { image, config, settings, description, languages, notes } = await readContent(contentDir, { fetch, downloads });
     for (const note of notes) warn(note);
 
     const baseUrl = (config.base_url ?? env.SITE_BASE_URL ?? LOCAL_BASE_URL).replace(/\/+$/, '');
@@ -110,6 +110,9 @@ export async function build({ contentDir, outDir, env = process.env, log = () =>
       pageUrl,
     };
     await writeFile(join(outDir, 'site.json'), JSON.stringify(site, null, 2));
+    // For the settings helper (settings.html): the settings as written, and the page on GitHub that edits them.
+    const editUrl = env.GITHUB_REPOSITORY && `https://github.com/${env.GITHUB_REPOSITORY}/edit/${env.GITHUB_REF_NAME ?? 'main'}/content/whatiiif.toml`;
+    await writeFile(join(outDir, 'settings.json'), JSON.stringify({ settings, editUrl }, null, 2));
     // The icon and the picture a shared link shows, cut from whole-picture files already published.
     const whole = wholeImage({ info, imageId });
     await makeIcon(join(imageDir, whole.path), join(outDir, 'icon.png'));

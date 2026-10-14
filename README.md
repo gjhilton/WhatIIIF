@@ -55,15 +55,22 @@ The browser uploads files of up to 25 MB. For a bigger picture, see [Large pictu
 
 ## Describe your picture (optional)
 
-Open `content/whatiiif.toml`, click the pencil icon to edit it, and fill in the lines you want. Remove the `#` at
-the start of each line you use:
+The easiest way is your site's **settings helper**, at `https://YOUR-USERNAME.github.io/YOUR-REPOSITORY/settings.html`.
+Fill in the form, copy what it makes, and paste it over `content/whatiiif.toml` on GitHub: the helper links to the
+file, and checks everything as the build will.
+
+Or edit the file yourself: open `content/whatiiif.toml`, click the pencil icon to edit it, and fill in the lines you
+want. Remove the `#` at the start of each line you use:
 
 ```toml
 title = "Harbour at dusk"
-summary = "The fishing fleet coming home, 1890."
+summary = "The fishing fleet coming home."
+creator = "A. Painter"
+date = "1890"
 attribution = "Example Museum"
 alt = "Fishing boats entering a harbour under an orange sky"
 rights = "https://creativecommons.org/licenses/by/4.0/"
+dimensions = "120 × 80 cm"
 ```
 
 Click **Commit changes** and the site rebuilds itself. For a longer description, add a file called
@@ -75,6 +82,7 @@ Click **Commit changes** and the site rebuilds itself. For a longer description,
   `description.cy.md` next to `description.md`. Visitors see their own language and can switch.
 - **rights** must be a Creative Commons or RightsStatements.org address; the address of the licence's own page,
   copied from your browser, is fine. Put any other terms in `attribution`.
+- **dimensions**, the real size of the original, gives the picture a scale bar.
 - **Colours:** the page is black on white, or white on black for visitors whose computer is set to dark mode. To
   use your own colours in both, add a section like this (any CSS colour works):
 
