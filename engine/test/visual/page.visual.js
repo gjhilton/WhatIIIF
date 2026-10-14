@@ -149,6 +149,16 @@ test('the viewer could not load: said in red', async ({ browser }) => {
   await close();
 });
 
+test('the viewer could not load, in dark mode: said in a red that reads on black', async ({ browser }) => {
+  const { page, close } = await open(browser, one, {
+    colorScheme: 'dark',
+    before: (p) => p.route('**/assets/openseadragon-*.js', (route) => route.fulfill({ contentType: 'text/javascript', body: 'throw new Error("its code did not arrive");' })),
+  });
+  await expect(page.locator('.viewer-error')).toHaveCSS('color', 'rgb(255, 85, 85)');
+  await expect(page).toHaveScreenshot('dark-viewer-error.png', { fullPage: true });
+  await close();
+});
+
 test('the page could not load its details: said in red', async ({ browser }) => {
   // The details are written into the page, and in site.json for a page without them: take away both.
   const without = (await readFile(one.fileFor('index.html'), 'utf8')).replace(/<script type="application\/json" id="whatiiif-site">.*?<\/script>/s, '');

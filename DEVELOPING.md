@@ -93,6 +93,8 @@ Two checks cover those:
   - `github.live.js` puts this commit of the template in its repository and does what a newcomer might. It uploads
     a picture before switching Pages on and expects the run to say how to fix that, switches Pages on and re-runs,
     then pushes a picture too big for the browser through Git LFS, sized so the site comes near the Pages limit.
+  - `release.live.js` puts a picture twice the browser's upload limit into a release of its repository, links to it
+    in `whatiiif.toml` as the README says, and checks the site and the original's download.
   - `update.live.js` starts its repository on the previous release, publishes a picture, runs the Update workflow
     and expects a pull request for the latest release that changes only `engine/` and the package files. Merging
     it must republish the site. Run it after each release.

@@ -11,10 +11,12 @@
   --viewer: var(--paper); /* behind the picture */
 }
 
-/* For visitors whose computer is set to dark mode: the same page, black and white swapped. */
+/* For visitors whose computer is set to dark mode: the same page, black and white swapped, and a brighter red,
+   which reads as easily on black (6.7:1) as the other does on white. */
 @media (prefers-color-scheme: dark) {
   :root {
     --paper: #000000;
     --ink: #ffffff;
+    --error: #ff5555;
   }
 }
