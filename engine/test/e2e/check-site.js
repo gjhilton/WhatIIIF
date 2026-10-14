@@ -28,11 +28,11 @@ before(async () => {
 after(() => browser?.close());
 
 test('the page opens and is titled after the image', async () => {
-  const { title } = await json('site.json');
+  const titles = Object.values((await json('site.json')).title); // in whichever of its languages the browser gets
   const { page, problems, close } = await browse(browser, { siteUrl, fileFor });
   await page.locator('h1').waitFor();
-  assert.equal(await page.locator('h1').textContent(), title);
-  assert.equal(await page.title(), title);
+  assert.ok(titles.includes(await page.locator('h1').textContent()), `the heading is one of ${titles}`);
+  assert.equal(await page.title(), await page.locator('h1').textContent());
   assert.deepEqual(problems, []);
   await close();
 });
@@ -45,6 +45,33 @@ for (const [viewer, label] of [['openseadragon', 'OpenSeadragon'], ['mirador', '
     await site.close();
   });
 }
+
+test('a shared link shows a picture that is published', async () => {
+  const html = dist ? await readFile(join(dist, 'index.html'), 'utf8') : await (await fetch(`${siteUrl}/`)).text();
+  const picture = html.match(/<meta property="og:image" content="([^"]+)">/)?.[1];
+  assert.ok(picture?.startsWith(`${siteUrl}/`), `og:image is ${picture}`);
+  assert.equal(await published(picture.slice(siteUrl.length + 1)), true);
+});
+
+test('without JavaScript the page shows the picture, with alt text', async () => {
+  const { page, problems, close } = await browse(browser, { siteUrl, fileFor, javaScriptEnabled: false });
+  const picture = page.locator('.fallback img');
+  await picture.waitFor();
+  await page.waitForLoadState('networkidle');
+  assert.ok((await picture.getAttribute('alt'))?.trim(), 'the picture is described');
+  assert.equal(await picture.evaluate((img) => img.complete && img.naturalWidth > 0), true, 'the picture loads');
+  assert.deepEqual(problems, []);
+  await close();
+});
+
+test('the embedded view shows the picture and its credit, and nothing else', async () => {
+  const { page, fetched, problems, close } = await browse(browser, { siteUrl, fileFor, query: '?embed' });
+  await page.locator('.credit').waitFor();
+  assert.equal(await page.locator('.masthead').count(), 0);
+  await zoomToFullResolution({ page, fetched });
+  assert.deepEqual(problems, []);
+  await close();
+});
 
 test('the image service is where it says it is, with every file a viewer could ask for', async () => {
   const info = await json('iiif/image/info.json');

@@ -22,7 +22,8 @@ const base = {
 };
 
 const everySetting = `
-title = "Harbour"
+language = "cy"
+title = { cy = "Harbwr", en = "Harbour" }
 summary = "A view."
 attribution = "Example Museum"
 rights = "https://creativecommons.org/licenses/by/4.0/"

@@ -1,74 +1,91 @@
 # whatiiif
 
-Turn one high-resolution image into a zoomable [IIIF](https://iiif.io) image on GitHub Pages. No server:
-a GitHub Action slices your image into static tiles and publishes them with a preview page.
+Put one large picture on the web, zoomable, for free: a map, a manuscript page, a painting, a photograph.
+You upload the image to GitHub, and GitHub builds a website where anyone can zoom into it, share a link to any
+detail, or embed it in their own page. The picture is also published as [IIIF](https://iiif.io), the standard
+that museum and library viewers such as Mirador and Universal Viewer read.
 
-## Use it
+You need a free GitHub account. Everything below happens in your web browser.
 
-1. Click **Use this template** to make your own copy of this repository.
-2. In your copy: **Settings → Pages → Source: GitHub Actions**.
-3. Put **one** image (TIFF, PNG or JPEG) in `content/`, commit and push.
+## Make your site
 
-A minute or so later your site is live at `https://<you>.github.io/<repo>/`. It shows the image in
-OpenSeadragon (switchable to Mirador) and gives you two URLs to paste into any IIIF viewer:
+1. **Copy this template.** At the top of this page click **Use this template → Create a new repository**.
+   Give it a name (it becomes part of your site's address), choose **Public**, and click **Create repository**.
+2. **Switch on GitHub Pages.** In your new repository open **Settings → Pages**. Under **Source**, choose
+   **GitHub Actions**.
+3. **Add your picture.** Go to the **Code** tab, open the **content** folder, and choose
+   **Add file → Upload files**. Drop in one TIFF, PNG or JPEG, then click **Commit changes**.
+4. **Wait a minute or two.** The **Actions** tab shows your site being built. A green tick means it is ready.
+5. **Visit your site** at `https://YOUR-USERNAME.github.io/YOUR-REPOSITORY/`. The address is also shown under
+   **Settings → Pages**.
 
-- **Manifest** – `…/iiif/manifest.json`
-- **Image service** – `…/iiif/image/info.json`
+The browser uploads files of up to 25 MB. For a bigger picture, see [Large pictures](#large-pictures).
 
-Large images (over 100 MB) work: `.gitattributes` already sends images in `content/` through Git LFS.
-GitHub's free plans include 10 GiB of LFS storage and 10 GiB of LFS bandwidth a month, and each build downloads the image once.
+## Describe your picture (optional)
 
-## Describe it (optional)
+Open `content/whatiiif.toml`, click the pencil icon to edit it, and fill in the lines you want. Remove the `#` at
+the start of each line you use:
 
-Edit `content/whatiiif.toml` (every setting is commented there) for title, attribution, rights,
-extra metadata and viewer choice. Add `content/description.md` for longer text shown on the page.
-`rights` takes a Creative Commons or RightsStatements.org URL, the only kinds IIIF viewers recognise;
-put any other terms in `attribution`.
-
-## What gets published
-
-IIIF Image API 3.0 level 0 tiles (JPEG, sRGB), small whole-image sizes, a full-size JPEG and a Presentation 3.0 manifest.
-Photos are turned upright if the camera only recorded their rotation, and colours are converted to sRGB using the
-image's embedded colour profile, so wide-gamut and CMYK originals look the same at every zoom level. What the camera
-wrote into the file (its model, the time, where the photo was taken) is not published.
-The original file is **not** copied to the site; the manifest links to it in your repository. If the site would exceed
-GitHub Pages' size limit, the full-size JPEG is dropped first. Set `publish.full = false` to skip it.
-
-## Try it locally
-
-Needs Node 22 or newer, nothing else.
-
-```sh
-npm install
-npm run build      # slices content/ into dist/
-npm run preview    # http://localhost:4173
-npm test
+```toml
+title = "Harbour at dusk"
+summary = "The fishing fleet coming home, 1890."
+attribution = "Example Museum"
+alt = "Fishing boats entering a harbour under an orange sky"
+rights = "https://creativecommons.org/licenses/by/4.0/"
 ```
 
-`npm run test:e2e` goes further. It makes repositories from the template, commits images to them the way people do
-(uploaded on github.com, through Git LFS, with mistakes), runs what the Deploy workflow runs, and opens each site in
-a real browser with both viewers, failing if either asks for a file that was not published. It also runs the Update
-workflow against a stand-in for GitHub. It needs a browser once: `npx playwright install chromium-headless-shell`.
+Click **Commit changes** and the site rebuilds itself. For a longer description, add a file called
+`content/description.md` (written in [Markdown](https://commonmark.org/help/)).
 
-To check a site that is already live, in the same browser:
+- **Other languages:** write any text like `title = { en = "Harbour", cy = "Harbwr" }`, and add
+  `description.cy.md` next to `description.md`. Visitors see their own language and can switch.
+- **rights** must be a Creative Commons or RightsStatements.org address. Put any other terms in `attribution`.
+- Every setting is explained in the file itself.
 
-```sh
-E2E_SITE_URL=https://you.github.io/your-image node --test engine/test/e2e/check-site.js
-```
+## Share it
 
-Locally the manifest and image ids point at `http://localhost:4173`; on GitHub they are derived from your Pages URL
-(or `base_url` in the TOML for a custom domain).
+Under the picture on your site you will find, ready to copy:
 
-## Staying up to date
+- **Manifest URL**: paste it into any IIIF viewer.
+- **Link to this view**: zoom into a detail first, and the link opens on exactly that.
+- **Embed on a web page**: code that puts the zoomable picture into a blog post or another website.
 
-Everything in `engine/` (slicer, manifest builder, validator, preview page) is owned by the template; everything in
-`content/` is yours. The **Update** workflow opens a pull request when a new template release appears, replacing only
-`engine/`, `package.json` and `package-lock.json`. Enable **Settings → Actions → General → Allow GitHub Actions to
-create and approve pull requests** for it. If `.github/workflows/` changed upstream the PR says so, and you copy
-those files by hand (GitHub does not let automation edit workflow files).
+Links to your site show the picture, title and summary when shared on social media or in chat apps.
 
-Template maintainers: set `engine/UPSTREAM` to `owner/repo` and bump `engine/VERSION` with each release.
+## Change the picture
 
-## Licence
+Delete the old file from the `content` folder and upload the new one. The site holds one picture at a time.
 
-MIT © g.j.hilton. See [LICENSE](LICENSE).
+## If something goes wrong
+
+Open the **Actions** tab and click the run with a red cross. The error explains what to fix:
+
+| The error says | What to do |
+|---|---|
+| GitHub Pages is not enabled | Do step 2 above, then click **Re-run jobs**. |
+| content/ must contain exactly one image | Delete the extra pictures from `content`. |
+| … is not supported yet | Save the picture as TIFF, PNG or JPEG and upload that instead. |
+| content/whatiiif.toml: … | Fix the setting it names; the message says how. |
+
+If nothing runs at all after you upload, check that the picture went into the **content** folder.
+
+## Large pictures
+
+Pictures over 25 MB cannot be uploaded in the browser, so use Git on your computer instead. This template already
+sends pictures through [Git LFS](https://git-lfs.com), which handles files over GitHub's 100 MB limit:
+
+1. Install [Git LFS](https://git-lfs.com) and run `git lfs install` once.
+2. Clone your repository, copy the picture into `content/`, then commit and push.
+
+Free GitHub accounts include 10 GiB of LFS storage and 10 GiB of downloads a month; each rebuild downloads the
+picture once.
+
+## Keeping up to date
+
+When this template improves, an **Update** workflow opens a pull request in your repository: merge it to update.
+To let it do that, turn on **Settings → Actions → General → Allow GitHub Actions to create and approve pull
+requests**. It never touches your `content` folder.
+
+---
+
+Working on whatiiif itself? See [DEVELOPING.md](DEVELOPING.md). MIT licence © g.j.hilton.

@@ -37,7 +37,8 @@ test('builds a valid service, manifest and site config from a committed image', 
   assert.equal(site.viewer, 'openseadragon');
   assert.equal(site.manifestUrl, 'https://example.org/site/iiif/manifest.json');
   assert.equal(site.infoUrl, 'https://example.org/site/iiif/image/info.json');
-  assert.equal(site.title, 'Harbour');
+  assert.equal(site.canvasId, manifest.items[0].id);
+  assert.deepEqual(site.title, { en: 'Harbour' });
   assert.equal(site.width, 2000);
 });
 
@@ -58,7 +59,7 @@ test('gives the page the optional description.md already turned into HTML', asyn
   const { content, out } = await setup();
   await writeFile(join(content, 'description.md'), '# About\n\nA *harbour*.');
   await build({ contentDir: content, outDir: out, env: {} });
-  assert.equal((await read(join(out, 'site.json'))).description, '<h1>About</h1>\n<p>A <em>harbour</em>.</p>\n');
+  assert.deepEqual((await read(join(out, 'site.json'))).description, { en: '<h1>About</h1>\n<p>A <em>harbour</em>.</p>\n' });
 });
 
 test('a rebuild after swapping the image leaves no tiles from the previous one', async () => {
@@ -72,4 +73,33 @@ test('a rebuild after swapping the image leaves no tiles from the previous one',
   // gives it and the one viewers ask for.
   assert.deepEqual(await readdir(join(out, 'iiif/image')), ['full', 'info.json']);
   assert.deepEqual(await readdir(join(out, 'iiif/image/full')), ['300,200', 'max']);
+});
+
+test('tells the page every language its texts are in, the site language first, with a description for each', async () => {
+  const { content, out } = await setup('language = "cy"\ntitle = { en = "Harbour", cy = "Harbwr" }\nsummary = { de = "Hafen" }');
+  await writeFile(join(content, 'description.md'), 'Golygfa');
+  await writeFile(join(content, 'description.en.md'), 'A view');
+  await writeFile(join(content, 'description.notes.v2.md'), 'Not a translation');
+  await build({ contentDir: content, outDir: out, env: {} });
+
+  const site = await read(join(out, 'site.json'));
+  assert.equal(site.language, 'cy');
+  assert.deepEqual(site.languages, ['cy', 'de', 'en']);
+  assert.deepEqual(site.title, { en: 'Harbour', cy: 'Harbwr' });
+  assert.deepEqual(site.alt, { en: 'Harbour', cy: 'Harbwr' });
+  assert.deepEqual(site.description, { cy: '<p>Golygfa</p>\n', en: '<p>A view</p>\n' });
+});
+
+test('personalises the built page: a social card showing a published picture, and a fallback without JavaScript', async () => {
+  const { content, out } = await setup('title = "Harbour"\nalt = "Fishing boats at dusk"');
+  // What Vite leaves in the output folder before the engine runs.
+  await writeFile(join(out, 'index.html'), '<head><!-- whatiiif:head --><title>whatiiif</title><!-- /whatiiif:head --></head><body><!-- whatiiif:body --><!-- /whatiiif:body --></body>');
+  await build({ contentDir: content, outDir: out, env: { SITE_BASE_URL: 'https://example.org/site' } });
+
+  assert.equal((await read(join(out, 'site.json'))).pageUrl, 'https://example.org/site/');
+  const html = await readFile(join(out, 'index.html'), 'utf8');
+  const card = html.match(/<meta property="og:image" content="https:\/\/example\.org\/site\/(iiif\/image\/full\/[^"]+)">/);
+  assert.ok(card, 'the card picture is an absolute address on the site');
+  assert.deepEqual(await readdir(join(out, card[1], '..')), ['default.jpg'], 'and that file is published');
+  assert.ok(html.includes('alt="Fishing boats at dusk"'));
 });

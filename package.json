@@ -11,7 +11,7 @@
     "test": "node --test \"engine/test/**/*.test.js\"",
     "test:e2e": "node --test \"engine/test/e2e/*.e2e.js\"",
     "typecheck": "tsc -p engine/client",
-    "build": "npm run build:iiif && npm run build:page",
+    "build": "npm run build:page && npm run build:iiif",
     "build:iiif": "node engine/build.js",
     "build:page": "vite build --config engine/client/vite.config.ts",
     "preview": "vite preview --config engine/client/vite.config.ts"

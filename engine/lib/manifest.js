@@ -1,4 +1,6 @@
-const lang = (text) => ({ en: [text] });
+// IIIF language maps: each language's text in an array. `text` is one of the config's language maps.
+const languageMap = (text) => Object.fromEntries(Object.entries(text).map(([language, words]) => [language, [words]]));
+const english = (words) => ({ en: [words] }); // our own words, not the site author's
 
 /** Builds a Presentation API 3.0 manifest wrapping the static image service. */
 export function buildManifest({ manifestId, imageId, info, config, hasFull, originalUrl }) {
@@ -17,14 +19,14 @@ export function buildManifest({ manifestId, imageId, info, config, hasFull, orig
     '@context': 'http://iiif.io/api/presentation/3/context.json',
     id: manifestId,
     type: 'Manifest',
-    label: lang(config.title),
-    ...(config.summary && { summary: lang(config.summary) }),
+    label: languageMap(config.title),
+    ...(config.summary && { summary: languageMap(config.summary) }),
     ...(config.attribution && {
-      requiredStatement: { label: lang('Attribution'), value: lang(config.attribution) },
+      requiredStatement: { label: english('Attribution'), value: languageMap(config.attribution) },
     }),
     ...(config.rights && { rights: config.rights }),
     ...(config.metadata?.length && {
-      metadata: config.metadata.map(({ label, value }) => ({ label: lang(label), value: lang(value) })),
+      metadata: config.metadata.map(({ label, value }) => ({ label: languageMap(label), value: languageMap(value) })),
     }),
     thumbnail: [
       {
@@ -34,7 +36,7 @@ export function buildManifest({ manifestId, imageId, info, config, hasFull, orig
         service,
       },
     ],
-    ...(originalUrl && { rendering: [{ id: originalUrl, type: 'Image', label: lang('Original file') }] }),
+    ...(originalUrl && { rendering: [{ id: originalUrl, type: 'Image', label: english('Original file') }] }),
     items: [
       {
         id: canvasId,
