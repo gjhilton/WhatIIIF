@@ -1,5 +1,6 @@
 // content/, which belongs to the site's owner: one picture (or the link to one in whatiiif.toml), the settings in
-// whatiiif.toml, and descriptions in description.md and description.<language>.md.
+// whatiiif.toml, descriptions in description.md and description.<language>.md, and, if its owner wants them, notes
+// on the picture in notes.md and notes.<language>.md.
 import { createWriteStream } from 'node:fs';
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { basename, extname, join } from 'node:path';
@@ -7,11 +8,13 @@ import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { Marked } from 'marked';
 import { LANGUAGE_EXAMPLE, languageCode, parseConfig } from './config.js';
+import { combineNotes } from './notes.js';
 import { cannotRead, findImage, listImages, sniff } from './source.js';
 import { closest } from './spelling.js';
 
 const DESCRIPTION = /^description(?:\.([^.]+))?\.md$/;
-const KNOWN = ['whatiiif.toml', 'description.md'];
+const NOTES = /^notes(?:\.([^.]+))?\.md$/;
+const KNOWN = ['whatiiif.toml', 'description.md', 'notes.md'];
 
 // The page's title is its one top-level heading, so a description's headings start a level below it.
 const markdown = new Marked({
@@ -37,24 +40,35 @@ async function descriptions(dir, files, language) {
   return Object.keys(html).length ? html : undefined;
 }
 
+/** The notes files in content/, by the language each is in: `{ cy: { file, text } }`; undefined when there are none. */
+async function notesFiles(dir, files, language) {
+  const found = {};
+  for (const file of files) {
+    const match = NOTES.exec(file);
+    const tag = match && (match[1] === undefined ? language : languageCode(match[1]));
+    if (!tag) continue;
+    if (found[tag]) throw new Error(`content/${found[tag].file} and content/${file} are both in ${tag}; keep one`);
+    found[tag] = { file, text: await readFile(join(dir, file), 'utf8') };
+  }
+  return Object.keys(found).length ? found : undefined;
+}
+
 /** What to tell the owner about each file in content/ that will not be published, or used to make the site. */
 function unused(files, { images, unsupported }, image) {
-  const notes = [];
+  const told = [];
   for (const file of files) {
     if (file.startsWith('.') || file === 'whatiiif.toml' || file === image.name) continue;
-    const description = DESCRIPTION.exec(file);
-    if (description) {
-      if (description[1] !== undefined && !languageCode(description[1])) {
-        notes.push(`content/${file} is not used: "${description[1]}" is not ${LANGUAGE_EXAMPLE}.`);
-      }
+    const texts = DESCRIPTION.exec(file) ?? NOTES.exec(file);
+    if (texts) {
+      if (texts[1] !== undefined && !languageCode(texts[1])) told.push(`content/${file} is not used: "${texts[1]}" is not ${LANGUAGE_EXAMPLE}.`);
     } else if (images.includes(file) || unsupported.includes(file)) {
-      notes.push(`content/${file} is not published: only ${image.name} is.`);
+      told.push(`content/${file} is not published: only ${image.name} is.`);
     } else {
       const meant = closest(file, KNOWN) ?? closest(basename(file, extname(file)), KNOWN);
-      notes.push(`content/${file} is not used${meant ? `; did you mean ${meant}?` : '. content/ holds one picture, whatiiif.toml and description.md.'}`);
+      told.push(`content/${file} is not used${meant ? `; did you mean ${meant}?` : '. content/ holds one picture, whatiiif.toml and description.md.'}`);
     }
   }
-  return notes;
+  return told;
 }
 
 /** The picture at `url`, downloaded into `dir`: where it is now, what it is called and what kind of picture it is. */
@@ -97,8 +111,9 @@ function languagesOf(language, texts) {
 
 /**
  * Everything in `dir` that the site is made from: the picture, the settings with their defaults, the description
- * as HTML (a language map, like every text), every language any of those texts is in, `notes` on files in `dir`
- * that are not used, and the `settings` as written, without the defaults that come from the picture. A picture named by its link in the settings is downloaded into `downloads` with `fetch`.
+ * as HTML (a language map, like every text), any notes on the picture, every language any of those texts is in,
+ * what is `unused` in `dir`, and the `settings` as written, without the defaults that come from the picture. A
+ * picture named by its link in the settings is downloaded into `downloads` with `fetch`.
  */
 export async function readContent(dir, { fetch = globalThis.fetch, downloads } = {}) {
   const files = (await readdir(dir)).sort();
@@ -119,7 +134,13 @@ export async function readContent(dir, { fetch = globalThis.fetch, downloads } =
   const title = settings.title ?? { [settings.language]: basename(image.name, extname(image.name)) };
   const config = { ...settings, title, alt: settings.alt ?? title };
   const description = await descriptions(dir, files, config.language);
+  const written = await notesFiles(dir, files, config.language);
+  const notes = written && combineNotes(written, config.language);
   const { summary, creator, date, attribution, alt, metadata } = config;
-  const texts = [title, summary, creator, date, attribution, alt, description, ...metadata.flatMap(({ label, value }) => [label, value])];
-  return { image, config, settings, description, languages: languagesOf(config.language, texts), notes: unused(files, pictures, image) };
+  const texts = [
+    ...[title, summary, creator, date, attribution, alt, description, notes?.intro],
+    ...metadata.flatMap(({ label, value }) => [label, value]),
+    ...(notes?.items ?? []).flatMap((note) => [note.title, note.text]),
+  ];
+  return { image, config, settings, description, notes, languages: languagesOf(config.language, texts), unused: unused(files, pictures, image) };
 }

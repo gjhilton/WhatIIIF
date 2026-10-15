@@ -46,13 +46,13 @@ test('an iPhone photo (HEIC) gets its own explanation of how to make it a JPEG',
 });
 
 test('with nothing but a picture, the settings are the defaults, and the title and alt text are the file name', async () => {
-  const { image, config, description, languages, notes } = await readContent(await named('Harbour view.jpg', '.gitkeep', '.DS_Store'));
+  const { image, config, description, languages, unused } = await readContent(await named('Harbour view.jpg', '.gitkeep', '.DS_Store'));
   assert.equal(image.format, 'image/jpeg');
   assert.deepEqual(config.title, { en: 'Harbour view' });
   assert.deepEqual(config.alt, { en: 'Harbour view' });
   assert.equal(description, undefined);
   assert.deepEqual(languages, ['en']);
-  assert.deepEqual(notes, []);
+  assert.deepEqual(unused, []);
 });
 
 test('the file name becomes the title in the site language', async () => {
@@ -84,7 +84,7 @@ test('files in content/ that the site will not use are pointed out, with the nam
     'Whatiiif.toml.txt': 'x',
     'notes.txt': 'x',
   });
-  assert.deepEqual((await readContent(dir)).notes, [
+  assert.deepEqual((await readContent(dir)).unused, [
     'content/Whatiiif.toml.txt is not used; did you mean whatiiif.toml?',
     'content/description.welsh.md is not used: "welsh" is not a language code such as en, cy or de-CH.',
     'content/descripton.md is not used; did you mean description.md?',

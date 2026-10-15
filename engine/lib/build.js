@@ -35,8 +35,8 @@ async function original(image, config, env) {
 export async function build({ contentDir, outDir, env = process.env, log = () => {}, warn = log, fetch = globalThis.fetch, budgetBytes = PAGES_BUDGET_BYTES }) {
   const downloads = await mkdtemp(join(tmpdir(), 'whatiiif-picture-'));
   try {
-    const { image, config, settings, description, languages, notes } = await readContent(contentDir, { fetch, downloads });
-    for (const note of notes) warn(note);
+    const { image, config, settings, description, notes, languages, unused } = await readContent(contentDir, { fetch, downloads });
+    for (const file of unused) warn(file);
 
     const baseUrl = (config.base_url ?? env.SITE_BASE_URL ?? LOCAL_BASE_URL).replace(/\/+$/, '');
     const pageUrl = `${baseUrl}/`;
