@@ -378,6 +378,15 @@ suite('a photographer uploads a phone photo on github.com and fills in every set
     await opened.close();
   });
 
+  test('the manifest opens in Mirador and Universal Viewer at their own projects’ addresses', async () => {
+    const { page, close } = await open(site);
+    const manifest = encodeURIComponent(`${site.baseUrl}/iiif/manifest.json`);
+    assert.equal(await page.getByRole('link', { name: 'Open in Mirador' }).getAttribute('href'), `https://projectmirador.org/embed/?iiif-content=${manifest}`);
+    // Universal Viewer's own, which universalviewer.io/uv.html leads to, rather than a host for trying out its versions.
+    assert.equal(await page.getByRole('link', { name: 'Open in Universal Viewer' }).getAttribute('href'), `https://universalviewer.dev/uv.html#?manifest=${manifest}`);
+    await close();
+  });
+
   test('a visitor can switch to Mirador, and the address then remembers the choice', async () => {
     const opened = await open(site);
     await opened.page.getByRole('button', { name: 'Mirador' }).click();
@@ -527,6 +536,26 @@ suite('a visitor shares the part of the picture they have zoomed into', () => {
       // The address names what is on screen: the region asked for, widened to the shape of the pane.
       const [x, y, w, h] = new URL(page.url()).hash.slice('#xywh='.length).split(',').map(Number);
       assert.ok(x <= 2002 && y <= 1502 && x + w >= 2498 && y + h >= 1898, `${[x, y, w, h]} holds 2000,1500,500,400`);
+      assert.deepEqual(problems, []);
+      await close();
+    });
+  }
+
+  for (const viewer of ['openseadragon', 'mirador']) {
+    test(`in ${viewer}, keys do not turn or mirror the picture, so a link to the view still names what is on screen`, async () => {
+      const { page, problems, close } = await open(site, `?viewer=${viewer}#xywh=2000,1500,500,400`);
+      const canvas = page.locator(viewer === 'mirador' ? '.mirador-window .openseadragon-canvas' : '.openseadragon-canvas').first();
+      await canvas.waitFor();
+      await page.waitForLoadState('networkidle');
+      await page.waitForTimeout(5000); // settled, and the outline of the region faded away (in OpenSeadragon)
+      const pane = page.locator('.viewer');
+      await canvas.focus(); // first, so its focus ring is in both pictures of it
+      await page.waitForTimeout(500);
+      const [before, address] = [await pane.screenshot(), page.url()];
+      for (const key of ['r', 'R', 'f']) await page.keyboard.press(key);
+      await page.waitForTimeout(1500);
+      assert.equal(page.url(), address, 'the address still names the same part');
+      assert.ok(before.equals(await pane.screenshot()), 'the picture as it was');
       assert.deepEqual(problems, []);
       await close();
     });
@@ -725,6 +754,23 @@ suite('a museum adds notes to its picture, which make a tour', () => {
     await sidebar.waitFor();
     assert.equal(await sidebar.getAttribute('aria-expanded'), 'false');
     assert.deepEqual(problems, []);
+    await close();
+  });
+
+  test('from the keyboard, the picture’s own buttons come before the numbers of the notes on it, as they do on screen', async () => {
+    const { page, close } = await open(site, '?viewer=openseadragon');
+    await page.locator('.note-marker').first().waitFor();
+    await page.getByRole('button', { name: 'Mirador' }).focus(); // the last thing before the picture
+    const order = [];
+    for (let i = 0; i < 6; i++) {
+      await page.keyboard.press('Tab');
+      order.push(await page.evaluate(() => document.activeElement.getAttribute('aria-label') ?? document.activeElement.className));
+    }
+    assert.deepEqual(order.slice(0, 4), ['Zoom in', 'Zoom out', 'Show the whole picture', 'Full screen']);
+    assert.ok(order.indexOf('Note 1') > 3, order.join(', '));
+    // And still drawn over the picture, where they can be pressed.
+    const zoomIn = await page.getByRole('button', { name: 'Zoom in' }).boundingBox();
+    assert.equal(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest('button')?.getAttribute('aria-label'), { x: zoomIn.x + zoomIn.width / 2, y: zoomIn.y + zoomIn.height / 2 }), 'Zoom in');
     await close();
   });
 
@@ -1010,6 +1056,7 @@ suite('a museum adds notes to its picture, which make a tour', () => {
     await preview.locator('.notes').waitFor();
     assert.match(await preview.locator('.preview-banner').textContent(), /^A preview of the notes you are writing, which are not on your site yet/);
     assert.deepEqual(await preview.locator('.notes li h3').allTextContents(), ['The lighthouse at dusk', 'The boats', 'A gull']);
+    assert.equal(await preview.getByRole('button', { name: 'Mirador' }).count(), 0, 'no Mirador, which lists the notes the site has, not these');
     await preview.getByRole('button', { name: 'Take the tour' }).click();
     assert.equal(await preview.getByRole('region', { name: 'Tour' }).locator('h2').textContent(), 'The lighthouse at dusk');
     await preview.evaluate(() => dispatchEvent(new Event('focus')));

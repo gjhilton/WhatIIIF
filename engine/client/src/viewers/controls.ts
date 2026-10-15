@@ -45,6 +45,14 @@ export function addControls(viewer: OpenSeadragon.Viewer): void {
   const holder = document.createElement('div'); // OpenSeadragon sets the display of what it is given
   holder.append(controls);
   viewer.addControl(holder, { anchor: OpenSeadragon.ControlAnchor.TOP_LEFT, autoFade: false });
+  // OpenSeadragon puts its corner of buttons after the picture, so the keyboard reached every note's number on the
+  // picture before them. Before it, they come first, as they do on screen, and are still drawn over it.
+  let corner: HTMLElement | null = holder;
+  while (corner && corner.parentElement !== viewer.container) corner = corner.parentElement;
+  if (corner) {
+    corner.style.zIndex = '1';
+    viewer.container.insertBefore(corner, viewer.container.firstChild);
+  }
   viewer.addHandler('full-page', ({ fullPage }) => {
     const label = fullPage ? 'Leave full screen' : 'Full screen';
     fullScreen.title = label;

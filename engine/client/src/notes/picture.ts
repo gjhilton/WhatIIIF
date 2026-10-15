@@ -6,6 +6,7 @@ import type { Site } from '../site';
 import type { Region } from '../address';
 import { pageColour } from '../colours';
 import { addControls } from '../viewers/controls';
+import { keepUpright } from '../viewers/upright';
 
 export interface Picture {
   /** The part of the picture on screen, in whole pixels within it. */
@@ -54,10 +55,7 @@ export function openPicture(el: HTMLElement, site: Site, { onChoose, onAdjust, o
   });
   addControls(viewer);
   viewer.addHandler('open-failed', ({ message }) => onError(`The picture could not be opened: ${message}`));
-  // Not OpenSeadragon's keys to turn (r) and mirror (f) the picture: parts are marked on it as it is.
-  viewer.addHandler('canvas-key', (event) => {
-    if (/^[rf]$/i.test(event.originalEvent.key)) event.preventDefaultAction = true;
-  });
+  const letTurn = keepUpright(el); // parts are marked on the picture as it is
   const image = () => viewer.world.getItemAt(0);
   let opened = false;
   let waiting: Region | undefined;
@@ -263,6 +261,7 @@ export function openPicture(el: HTMLElement, site: Site, { onChoose, onAdjust, o
     },
     destroy() {
       document.removeEventListener('keydown', escape);
+      letTurn();
       viewer.destroy();
     },
   };

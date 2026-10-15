@@ -22,7 +22,7 @@ async function preview(site: Site) {
     root.render(
       <StrictMode>
         <PreviewBanner drafted={drafted} problem={problem} />
-        <App key={version} site={previewed} />
+        <App key={version} site={previewed} preview />
       </StrictMode>,
     );
   };
