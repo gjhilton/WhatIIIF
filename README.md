@@ -137,18 +137,20 @@ The easiest way to write them is your site's **notes helper**, at
 `https://YOUR-USERNAME.github.io/YOUR-REPOSITORY/notes.html`:
 
 1. Zoom in on a part of the picture and choose **Add a note for the part in view**, or choose **Draw a new note's
-   part** and drag round it. To change a note's part later, drag its number on the picture to move it, or a corner to
-   change its size.
-2. Give the note a title and what you want to say. Add as many as you like, and put them in the order of the tour.
-3. Choose **Preview them on your site** to see the notes and their tour as your visitors will.
-4. Under **Put them on your site**, copy the `notes.md` it writes, follow its link to GitHub, paste it in, and click
+   part** and drag round it.
+2. Give the note a title and what you want to say. Add as many as you like, and use the arrows beside them to put them
+   in the order of the tour.
+3. To change a note's part, open the note and choose **Show it**. Then drag its number on the picture to move the part,
+   or a corner to change its size. Or zoom in on another part and choose **Use the part in view**.
+4. Choose **Preview them on your site** to see the notes and their tour as your visitors will.
+5. Under **Put them on your site**, copy the `notes.md` it writes, follow its link to GitHub, paste it in, and click
    **Commit changes**. The helper tells you when your site has them.
 
 ![The notes helper: the picture beside the list of notes, the first note open, its part outlined on the picture with a corner to drag at each corner](engine/artwork/notes-helper.png)
 
 It starts from your notes as they are, so come back to it to change them. Your browser keeps your changes until your
-site has them, so you can leave and come back. It checks the notes as the build will, and takes you to any that need
-fixing.
+site has them, so you can leave and come back. Keep the helper open in one tab: one opened in a second tab waits until
+the first is closed. The helper checks the notes as the build will, and takes you to any that need fixing.
 
 Or write `content/notes.md` yourself:
 
