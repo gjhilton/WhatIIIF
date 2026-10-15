@@ -11,16 +11,17 @@ import { openPicture, type Picture } from './picture';
 import {
   clearDraft,
   draftContent,
-  draftKey,
   languageName,
   loadDraft,
   newNote,
+  notesContent,
   problemsOf,
   readNotes,
   saveDraft,
   sameFiles,
   writeNotes,
   type Copied,
+  type Draft,
   type Note,
   type NotesFile,
   type Problem,
@@ -52,6 +53,8 @@ const describe = ({ x, y, w, h }: Region, { width, height }: Site) =>
 const filesOf = (source: NotesSource | undefined, language: string): NotesFile[] =>
   source ? [source, ...source.translations] : [{ file: 'notes.md', language, text: '' }];
 const when = (time: number) => new Date(time).toLocaleString('en-GB', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+/** What is kept of a draft, to tell whether it needs keeping again, and when its notes were last changed. */
+const keptAs = (draft?: Draft) => draft && { content: draftContent(draft), notes: notesContent(draft.notes), saved: draft.saved };
 const browserStorage = (): Storage | undefined => {
   try {
     return localStorage;
@@ -60,18 +63,20 @@ const browserStorage = (): Storage | undefined => {
   }
 };
 const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+// The picture beside the notes, rather than above them, as styles.css lays them out.
+const beside = () => matchMedia('(min-width: 60rem) and (min-height: 32rem)').matches;
 
 /** The notes as the browser kept them, if there are changes not yet on the site, else as the site has them. */
 function startingNotes(storage: Storage | undefined, files: NotesFile[], pageUrl: string) {
   const texts = files.map(({ text }) => text);
   const draft = storage && loadDraft(storage, pageUrl);
-  if (!draft || writeNotes(draft.notes, files, pageUrl).every(({ changed }) => !changed)) return { notes: readNotes(files), begun: texts };
+  if (!draft || writeNotes(draft.notes, files, pageUrl).every(({ changed }) => !changed)) return { notes: readNotes(files), begun: texts, kept: draft };
   // The site has what was last copied from here (and these are later changes): they now begin from it.
   const arrived = draft.copied !== undefined && sameFiles(files, draft.copied.texts);
   const begun = arrived ? texts : draft.begun;
   // Stale: the site's notes have changed since these changes began, on GitHub perhaps, and these would undo that.
   const stale = begun.length !== texts.length || begun.some((text, i) => text !== texts[i]);
-  return { notes: draft.notes, begun, copied: arrived ? undefined : draft.copied, restored: { saved: draft.saved, stale } };
+  return { notes: draft.notes, begun, copied: arrived ? undefined : draft.copied, restored: { saved: draft.saved, stale }, kept: draft };
 }
 
 export function NotesHelper({ site, source, links: built }: { site: Site; source?: NotesSource; links: Links }) {
@@ -100,20 +105,21 @@ export function NotesHelper({ site, source, links: built }: { site: Site; source
   const changed = written.filter((file) => file.changed);
   const problems = useMemo(() => problemsOf(notes, files, site, written), [notes, files, site, written]);
 
-  // Changes are kept in the browser as they are made, and forgotten once the site has them; kept again only when
-  // they change, so the time kept is when they were made.
-  const lastKept = useRef(start.restored && draftContent({ notes: start.notes, begun: start.begun, copied: start.copied }));
+  // Changes are kept in the browser as they are made, and forgotten once the site has them. A draft is kept again only
+  // when it differs from what is kept, and keeps the time its notes were last changed.
+  const lastKept = useRef(keptAs(start.kept));
   const save = () => {
     if (!storage) return setKept(false);
     if (changed.length === 0) {
-      clearDraft(storage, site.pageUrl);
+      if (lastKept.current) clearDraft(storage, site.pageUrl);
       lastKept.current = undefined;
       return;
     }
     const draft = { notes, begun, copied: copiedFiles };
-    if (draftContent(draft) === lastKept.current) return;
-    lastKept.current = draftContent(draft);
-    setKept(saveDraft(storage, site.pageUrl, draft));
+    if (draftContent(draft) === lastKept.current?.content) return;
+    const saved = notesContent(notes) === lastKept.current?.notes ? lastKept.current.saved : Date.now();
+    lastKept.current = keptAs({ ...draft, saved });
+    setKept(saveDraft(storage, site.pageUrl, { ...draft, saved }));
   };
   const saveSoon = useRef(save);
   saveSoon.current = save;
@@ -121,25 +127,17 @@ export function NotesHelper({ site, source, links: built }: { site: Site; source
     const timer = setTimeout(() => saveSoon.current(), 300);
     return () => clearTimeout(timer);
   }, [notes, files, begun, copiedFiles]);
-  // Changes kept by the helper open in another tab are followed here, so neither keeps its own over the other's.
-  const filesNow = useRef(files);
-  filesNow.current = files;
+  // And at once when the page is left or hidden, so the last few keys pressed are not lost with it.
   useEffect(() => {
-    if (!storage) return;
-    const follow = (event: StorageEvent) => {
-      if (event.key !== draftKey(site.pageUrl)) return;
-      const draft = loadDraft(storage, site.pageUrl);
-      const at = current.current.findIndex((note) => note.key === selectedNow.current);
-      const now = draft?.notes ?? readNotes(filesNow.current);
-      lastKept.current = draft && draftContent(draft);
-      setNotes(now);
-      setBegun(draft?.begun ?? filesNow.current.map(({ text }) => text));
-      setCopiedFiles(draft?.copied);
-      setSelected(now.items[at]?.key); // the same note stays open
+    const now = () => saveSoon.current();
+    const hidden = () => document.visibilityState === 'hidden' && now();
+    addEventListener('pagehide', now);
+    document.addEventListener('visibilitychange', hidden);
+    return () => {
+      removeEventListener('pagehide', now);
+      document.removeEventListener('visibilitychange', hidden);
     };
-    addEventListener('storage', follow);
-    return () => removeEventListener('storage', follow);
-  }, [storage, site.pageUrl]);
+  }, []);
   // A browser that will not keep them warns before they are lost.
   const unsaved = !kept && changed.length > 0;
   useEffect(() => {
@@ -157,20 +155,20 @@ export function NotesHelper({ site, source, links: built }: { site: Site; source
   const picture = useRef<Picture>(undefined);
   const current = useRef(items);
   current.current = items;
-  const selectedNow = useRef(selected);
-  selectedNow.current = selected;
   const [reveal, setReveal] = useState<string>(); // the id of a line in the list to scroll to, as a note is chosen elsewhere
   useEffect(() => {
     picture.current = openPicture(host.current!, site, {
       onChoose: (i) => {
         const key = current.current[i]?.key;
         setSelected(key);
-        setReveal(`note-${key}`);
+        // Beside the picture, the list scrolls to the note; above the notes, the page stays on the picture, where the
+        // note's part can now be dragged and the buttons under it change it.
+        if (beside()) setReveal(`note-${key}`);
       },
       onAdjust: (i, region) => {
         const key = current.current[i]?.key;
         if (key === undefined) return;
-        setNotes((now) => ({ ...now, items: now.items.map((note) => (note.key === key ? { ...note, region } : note)) }));
+        change(key, { region });
         setSelected(key);
       },
     });
@@ -263,12 +261,24 @@ export function NotesHelper({ site, source, links: built }: { site: Site; source
     setFresh(note.key);
     setAdded(note.key);
   };
-  const move = (key: number, by: number) =>
+  const move = (key: number, by: number) => {
     setNotes((now) => {
       const [i, next] = [now.items.findIndex((note) => note.key === key), [...now.items]];
       [next[i], next[i + by]] = [next[i + by], next[i]];
       return { ...now, items: next };
     });
+    setMoved({ key, by });
+  };
+  // Keyboard focus stays with the note moved, which a browser can lose as its line is moved: on the same button, or
+  // the other, at the top or bottom.
+  const [moved, setMoved] = useState<{ key: number; by: number }>();
+  useEffect(() => {
+    if (!moved) return;
+    const [same, other] = document.getElementById(`note-${moved.key}`)?.querySelectorAll<HTMLButtonElement>('.note-order button') ?? [];
+    const [first, second] = moved.by < 0 ? [same, other] : [other, same];
+    (first && !first.disabled ? first : second)?.focus();
+    setMoved(undefined);
+  }, [moved]);
   const remove = (key: number) => {
     const at = items.findIndex((note) => note.key === key);
     setRemoved({ note: items[at], at });
@@ -292,6 +302,7 @@ export function NotesHelper({ site, source, links: built }: { site: Site; source
   }, [undoFocus]);
   const startAgain = () => {
     if (!confirm('Forget the changes you made, and start again from the notes your site has?')) return;
+    if (drawing !== undefined) stopDrawing();
     setNotes(readNotes(files));
     setBegun(files.map(({ text }) => text));
     setCopiedFiles(undefined);
@@ -356,31 +367,25 @@ export function NotesHelper({ site, source, links: built }: { site: Site; source
           <div className="viewer" style={shape} aria-describedby="picture-hint">
             <div className="viewer-host" ref={host} />
           </div>
+          {/* The same buttons, drawing or not, so the one pressed keeps keyboard focus, and the hint says what changed. */}
           <div className="notes-toolbar">
-            {drawing === undefined ? (
-              <>
-                <button type="button" onClick={() => add(inView())}>Add a note for the part in view</button>
-                <button type="button" onClick={() => draw('new')}>Draw a new note’s part</button>
-                {open && (
-                  // Under the picture on a narrow screen, where the open note's own buttons are further down the page.
-                  <span className="notes-toolbar-note" role="group" aria-label={`Note ${index + 1}`}>
-                    <span>Note {index + 1}:</span>
-                    <button type="button" onClick={() => change(open.key, { region: inView() ?? open.region })}>Use the part in view</button>
-                    <button type="button" onClick={() => draw(open.key)}>{open.region ? 'Draw it again' : 'Draw it'}</button>
-                  </span>
-                )}
-                <p id="picture-hint" className="hint">
-                  Zoom in on a part of the picture, then add a note for it. Choose a number on the picture to open its note.
-                </p>
-              </>
-            ) : (
-              <>
-                <button type="button" onClick={stopDrawing}>Stop drawing</button>
-                <p id="picture-hint" className="hint" role="status">
-                  Drag across the picture, round the part for {drawing === 'new' ? 'a new note' : `note ${numberOf(drawing)}`}. It still zooms; Escape stops.
-                </p>
-              </>
+            <button type="button" onClick={() => add(inView())} disabled={drawing !== undefined}>Add a note for the part in view</button>
+            <button type="button" onClick={() => (drawing === undefined ? draw('new') : stopDrawing())}>
+              {drawing === undefined ? 'Draw a new note’s part' : 'Stop drawing'}
+            </button>
+            {open && drawing === undefined && (
+              // Under the picture on a narrow screen, where the open note's own buttons are further down the page.
+              <span className="notes-toolbar-note" role="group" aria-label={`Note ${index + 1}`}>
+                <span>Note {index + 1}:</span>
+                <button type="button" onClick={() => change(open.key, { region: inView() ?? open.region })}>Use the part in view</button>
+                <button type="button" onClick={() => draw(open.key)}>{open.region ? 'Draw it again' : 'Draw it'}</button>
+              </span>
             )}
+            <p id="picture-hint" className="hint" role="status">
+              {drawing === undefined
+                ? 'Zoom in on a part of the picture, then add a note for it. Choose a number on the picture to open its note.'
+                : `Drag across the picture, round the part for ${drawing === 'new' ? 'a new note' : `note ${numberOf(drawing)}`}. It still zooms; Escape stops.`}
+            </p>
           </div>
         </section>
 
@@ -438,7 +443,8 @@ export function NotesHelper({ site, source, links: built }: { site: Site; source
                   item
                   open={selected === note.key}
                   onToggle={() => {
-                    choose(selected === note.key ? undefined : note.key, { show: selected !== note.key });
+                    // The picture stays where it is, so a part just found there can be used for this note: Show it moves it.
+                    choose(selected === note.key ? undefined : note.key);
                     setReveal(`note-${note.key}`); // in view, as the note open above it closes
                   }}
                   label={
@@ -499,7 +505,7 @@ export function NotesHelper({ site, source, links: built }: { site: Site; source
                       <button type="button" aria-label={`Use the part in view for note ${i + 1}`} onClick={() => change(note.key, { region: inView() ?? note.region })}>
                         Use the part in view
                       </button>
-                      <button type="button" aria-label={`Draw it: note ${i + 1}`} onClick={() => draw(note.key)} disabled={drawing !== undefined}>
+                      <button type="button" aria-label={`Draw it: note ${i + 1}`} onClick={() => draw(note.key)}>
                         {note.region ? 'Draw it again' : 'Draw it'}
                       </button>
                     </span>
@@ -525,6 +531,7 @@ export function NotesHelper({ site, source, links: built }: { site: Site; source
             watch={copiedFiles ? { late } : arrived ? { arrived } : undefined}
             told={problems.filter(({ key }) => key === undefined || key !== fresh)}
             onCopy={copy}
+            onCopiedByHand={(file) => file.changed && watchFor([file])}
             onDownload={download}
             onGoTo={(key) => {
               choose(key);
@@ -664,6 +671,7 @@ function Publish({
   copied,
   watch,
   onCopy,
+  onCopiedByHand,
   onDownload,
   onGoTo,
 }: {
@@ -677,6 +685,8 @@ function Publish({
   copied?: boolean;
   watch?: { late?: boolean; arrived?: boolean };
   onCopy: (file: Written) => void;
+  /** The owner copied a file from its box themselves, as they must where the browser would not copy it. */
+  onCopiedByHand: (file: Written) => void;
   onDownload: (file: Written) => void;
   onGoTo: (key: number | 'intro') => void;
 }) {
@@ -703,7 +713,7 @@ function Publish({
   } else if (changed.length === 0) {
     steps = watch?.arrived ? (
       <p role="status">
-        Your site has these notes now. <a href="./">See them</a>.
+        Your site has these notes now. <a href={`./?updated=${Date.now()}`}>See them</a>.{/* not the page as the browser may have kept it */}
       </p>
     ) : (
       <p className="hint">These are the notes your site has. Once you change them, this says how to put them on it.</p>
@@ -773,7 +783,16 @@ function Publish({
       <details className="notes-files">
         <summary>See {names(written)}</summary>
         {written.map((file) => (
-          <textarea key={file.file} readOnly value={file.text} aria-label={file.file} rows={12} wrap="off" onFocus={(event) => event.currentTarget.select()} />
+          <textarea
+            key={file.file}
+            readOnly
+            value={file.text}
+            aria-label={file.file}
+            rows={12}
+            wrap="off"
+            onFocus={(event) => event.currentTarget.select()}
+            onCopy={() => onCopiedByHand(file)}
+          />
         ))}
       </details>
     </section>

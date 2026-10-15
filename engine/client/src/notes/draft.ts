@@ -169,27 +169,29 @@ export function problemsOf(
 /**
  * The notes as the site's page shows them (see combineNotes), made by the build's own code from the files the helper
  * would write, so the page can preview them before they are published. `language` is the site's. A note not yet
- * given a part of the picture is left out, and one without a title is called Untitled; undefined if no note has a
- * part to show, or the build could not read them.
+ * given a part of the picture is left out, and one without a title is called Untitled; none if no note has a part to
+ * show; and if the build could not read them, the problem it would give instead.
  */
-export function previewOf(notes: Notes, language: string, pageUrl: string): Site['notes'] | undefined {
+export function previewOf(notes: Notes, language: string, pageUrl: string): { notes?: Site['notes']; problem?: string } {
   const words = [notes.intro, ...notes.items.flatMap(({ title, text }) => [title, text])];
   const languages = [...new Set([language, ...words.flatMap((texts) => Object.keys(texts))])];
   const items = notes.items
     .filter(({ region }) => region)
     .map((note) => ({ ...note, title: Object.fromEntries(languages.map((tag) => [tag, note.title[tag]?.trim() || 'Untitled'])) }));
-  if (items.length === 0) return undefined;
+  if (items.length === 0) return {};
   const placed = { intro: notes.intro, items };
+  const file = (tag: string) => (tag === language ? 'notes.md' : `notes.${tag}.md`);
   try {
-    return combineNotes(Object.fromEntries(languages.map((tag) => [tag, { file: 'notes.md', text: sourceOf(placed, tag, tag === language, pageUrl) }])), language);
-  } catch {
-    return undefined;
+    return { notes: combineNotes(Object.fromEntries(languages.map((tag) => [tag, { file: file(tag), text: sourceOf(placed, tag, tag === language, pageUrl) }])), language) };
+  } catch (error) {
+    return { problem: (error as Error).message };
   }
 }
 
 /**
- * Changes not yet published, kept in the browser: the notes, the texts of the files they began from, when they were
- * kept, and the files last copied or downloaded to put on the site, and when, to watch for the site to have them.
+ * Changes not yet published, kept in the browser: the notes, the texts of the files they began from, when the notes
+ * were last changed, and the files last copied or downloaded to put on the site, and when, to watch for the site to
+ * have them.
  */
 export interface Draft {
   notes: Notes;
@@ -206,13 +208,21 @@ export interface Copied {
 // One draft for each site: an owner's sites share their browser storage, at OWNER.github.io.
 export const draftKey = (pageUrl: string) => `whatiiif notes: ${pageUrl}`;
 
-/** A draft as kept, apart from when: two the same need not be kept again. */
-export const draftContent = ({ notes, begun, copied }: Omit<Draft, 'saved'>) =>
-  JSON.stringify({ notes: { intro: notes.intro, items: notes.items.map(({ key, ...note }) => note) }, begun, copied });
+/** A draft as it is kept, but for when, and without the keys, which are the page's own. */
+const stored = ({ notes, begun, copied }: Omit<Draft, 'saved'>) => ({ notes: { intro: notes.intro, items: notes.items.map(({ key, ...note }) => note) }, begun, copied });
 
-/** Keeps a draft for the site at `pageUrl`, as kept `now`; false if the browser will not keep it (in a private window, say). */
-export function saveDraft(storage: Pick<Storage, 'setItem'>, pageUrl: string, { notes, begun, copied }: Omit<Draft, 'saved'>, now = Date.now()): boolean {
-  const kept = { notes: { intro: notes.intro, items: notes.items.map(({ key, ...note }) => note) }, begun, saved: now, copied };
+/** A draft as kept, apart from when: two the same need not be kept again. */
+export const draftContent = (draft: Omit<Draft, 'saved'>) => JSON.stringify(stored(draft));
+
+/** Just the notes of a draft, as kept: whether they changed decides when the draft was made. */
+export const notesContent = (notes: Notes) => JSON.stringify(stored({ notes, begun: [] }).notes);
+
+/**
+ * Keeps a draft for the site at `pageUrl`, made at its `saved` time, else `now`; false if the browser will not keep
+ * it (in a private window, say).
+ */
+export function saveDraft(storage: Pick<Storage, 'setItem'>, pageUrl: string, draft: Draft, now = Date.now()): boolean {
+  const kept = { ...stored(draft), saved: draft.saved ?? now };
   try {
     storage.setItem(draftKey(pageUrl), JSON.stringify(kept));
     return true;
@@ -238,6 +248,15 @@ export function loadDraft(storage: Pick<Storage, 'getItem'>, pageUrl: string): D
     return { notes: { intro: words(kept.notes.intro), items }, begun: kept.begun, saved: time(kept.saved), copied };
   } catch {
     return undefined;
+  }
+}
+
+/** The draft for the site at `pageUrl` exactly as kept, to tell when it changes; '' if there is none. */
+export function draftAsKept(storage: Pick<Storage, 'getItem'>, pageUrl: string): string {
+  try {
+    return storage.getItem(draftKey(pageUrl)) ?? '';
+  } catch {
+    return '';
   }
 }
 

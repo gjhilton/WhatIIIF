@@ -135,12 +135,22 @@ export function readNotesSource(text) {
   return { intro: markdown(intro), items: items.map(({ title, region, body }) => ({ title, region, text: markdown(body) })) };
 }
 
-/** HTML as a browser shows it: a run of spaces as one, and none at the start or end of a block of text. */
+/**
+ * HTML as a browser shows it: a run of spaces as one, and none at the start or end of a block of text; but every
+ * space and line in a <pre>, where they show, but for spaces at the end of a line.
+ */
 export const asShown = (html) =>
   html
-    .replace(/\s+/g, ' ')
-    .replace(/(<(?:p|li|h[1-6]|td|th|blockquote)>) /g, '$1')
-    .replace(/ (<\/(?:p|li|h[1-6]|td|th|blockquote)>)/g, '$1')
+    .split(/(<pre[\s>][\s\S]*?<\/pre>)/)
+    .map((part) =>
+      part.startsWith('<pre')
+        ? part.replace(/[ \t]+\n/g, '\n')
+        : part
+            .replace(/\s+/g, ' ')
+            .replace(/(<(?:p|li|h[1-6]|td|th|blockquote)>) /g, '$1')
+            .replace(/ (<\/(?:p|li|h[1-6]|td|th|blockquote)>)/g, '$1'),
+    )
+    .join('')
     .trim();
 
 /**

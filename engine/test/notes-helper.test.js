@@ -101,14 +101,16 @@ test('the preview shows the notes as the build would make them from the files wr
       { key: 3, region: { x: 5, y: 6, w: 7, h: 8 }, title: { en: ' ', cy: 'Gwylan' }, text: {} },
     ],
   };
-  assert.deepEqual(previewOf(notes, 'en', PAGE), {
+  assert.deepEqual(previewOf(notes, 'en', PAGE).notes, {
     intro: { en: '<p>Look.</p>\n', cy: '<p>Edrychwch.</p>\n' },
     items: [
       { region: { x: 1, y: 2, w: 3, h: 4 }, title: { en: 'The lighthouse', cy: 'Y goleudy' }, text: { en: '<p>See <a href="https://example.org/guide">the guide</a>.</p>\n' } },
       { region: { x: 5, y: 6, w: 7, h: 8 }, title: { en: 'Untitled', cy: 'Gwylan' } },
     ],
   });
-  assert.equal(previewOf({ intro: { en: 'Only this.' }, items: [notes.items[1]] }, 'en', PAGE), undefined, 'nothing to show on the picture');
+  assert.deepEqual(previewOf({ intro: { en: 'Only this.' }, items: [notes.items[1]] }, 'en', PAGE), {}, 'nothing to show on the picture');
+  const broken = { ...notes, items: [{ ...notes.items[0], text: { en: 'Red.\n\n## Sails', cy: '' } }] };
+  assert.match(previewOf(broken, 'en', PAGE).problem, /content\/notes\.md: the note "Sails" does not say which part of the picture it is about/, 'what stops the build, rather than nothing');
 });
 
 test('the site is known to have the notes copied from the helper once it is rebuilt, however the file was saved', () => {
@@ -117,6 +119,13 @@ test('the site is known to have the notes copied from the helper once it is rebu
   assert.equal(sameFiles(files.map((file) => ({ ...file, text: file.text.replace(/\n/g, '\r\n') })), written), true, 'with Windows line endings');
   assert.equal(sameFiles(files, [written[0].replace('still lit', 'dark'), written[1]]), false);
   assert.equal(sameFiles(files.slice(0, 1), written), false, 'a file fewer');
+});
+
+test('a change to the spaces or lines in code or verse set out in a block is a change: there they show', () => {
+  const site = [{ file: 'notes.md', language: 'en', text: '## [Verse](#xywh=1,2,3,4)\n\n```\nThe sea,\n  the sea.\n```\n' }];
+  assert.equal(sameFiles(site, ['## [Verse](#xywh=1,2,3,4)\n\n```\nThe sea,\n    the sea.\n```\n']), false, 'indented further');
+  assert.equal(sameFiles(site, ['## [Verse](#xywh=1,2,3,4)\n\n```\nThe sea, the sea.\n```\n']), false, 'on one line');
+  assert.equal(sameFiles(site, ['## [Verse](#xywh=1,2,3,4)\n\n```\nThe sea,\n  the sea.\n```']), true, 'without the last newline');
 });
 
 test('two notes files are the same when visitors would see the same, judged by the build’s own reading of them', () => {
@@ -148,6 +157,8 @@ test('changes not yet published are kept in the browser, for each site apart, wi
   const draft = loadDraft(kept, PAGE);
   assert.deepEqual(strip(draft.notes), strip(notes));
   assert.deepEqual([draft.begun, draft.saved, draft.copied], [[OWN, WELSH], 1000, copied], 'and what was last copied, to watch for');
+  saveDraft(kept, PAGE, { ...draft, copied: undefined, saved: 1000 }, 5000);
+  assert.equal(loadDraft(kept, PAGE).saved, 1000, 'kept again with the notes unchanged, it is still as made when they were made');
   assert.equal(loadDraft(kept, 'https://gjh.github.io/other/'), undefined, 'another site of the same owner’s keeps its own');
   clearDraft(kept, PAGE);
   assert.equal(loadDraft(kept, PAGE), undefined);

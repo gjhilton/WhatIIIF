@@ -16,12 +16,12 @@ async function preview(site: Site) {
   const { withDraft, PreviewBanner } = await import('./notes/preview');
   let shown: string | undefined;
   const show = () => {
-    const { site: previewed, drafted, version } = withDraft(site);
+    const { site: previewed, drafted, problem, version } = withDraft(site);
     if (version === shown) return;
     shown = version;
     root.render(
       <StrictMode>
-        <PreviewBanner drafted={drafted} />
+        <PreviewBanner drafted={drafted} problem={problem} />
         <App key={version} site={previewed} />
       </StrictMode>,
     );

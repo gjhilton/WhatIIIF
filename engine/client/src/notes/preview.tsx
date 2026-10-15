@@ -2,26 +2,31 @@
 // helper keeps them in the browser, and the page, opened with ?notes-draft, shows them in place of the site's own.
 import type { MouseEvent } from 'react';
 import type { Site } from '../site';
-import { loadDraft, previewOf } from './draft';
+import { draftAsKept, loadDraft, previewOf } from './draft';
+
+const storage = () => {
+  try {
+    return localStorage;
+  } catch {
+    return undefined; // a browser that keeps nothing has no draft to show
+  }
+};
 
 /**
- * `site` with the notes kept by the notes helper, as the build would make them; as it is if there are none.
- * `version` changes whenever they do.
+ * `site` with the notes kept by the notes helper, as the build would make them, or what would stop the build making
+ * them; as it is if there are none. `version` changes when, and only when, they do.
  */
-export function withDraft(site: Site): { site: Site; drafted: boolean; version: string } {
-  let draft;
-  try {
-    draft = loadDraft(localStorage, site.pageUrl);
-  } catch {
-    // A browser that keeps nothing has no draft to show.
-  }
+export function withDraft(site: Site): { site: Site; drafted: boolean; problem?: string; version: string } {
+  const kept = storage();
+  const draft = kept && loadDraft(kept, site.pageUrl);
   if (!draft) return { site, drafted: false, version: '' };
-  return { site: { ...site, notes: previewOf(draft.notes, site.language, site.pageUrl) }, drafted: true, version: JSON.stringify(draft) };
+  const { notes, problem } = previewOf(draft.notes, site.language, site.pageUrl);
+  return { site: { ...site, notes }, drafted: true, problem, version: draftAsKept(kept, site.pageUrl) };
 }
 
 /**
- * Back to the helper that opened this preview, closing it, rather than a second helper in its place: two would each
- * keep their own changes over the other's.
+ * Back to the helper that opened this preview, closing it, rather than a second helper in its place, which would only
+ * wait for the first to be closed.
  */
 function back(event: MouseEvent) {
   try {
@@ -35,13 +40,15 @@ function back(event: MouseEvent) {
   setTimeout(() => location.assign('notes.html'), 300); // the browser would not close it
 }
 
-/** Says, above the page, that it is a preview, and leads back to the helper. */
-export function PreviewBanner({ drafted }: { drafted: boolean }) {
+/** Says, above the page, that it is a preview, or why the notes cannot be shown, and leads back to the helper. */
+export function PreviewBanner({ drafted, problem }: { drafted: boolean; problem?: string }) {
   return (
     <p className="preview-banner" role="status">
-      {drafted
-        ? 'A preview of the notes you are writing, which are not on your site yet: its visitors still see the notes it has.'
-        : 'A preview of the notes helper’s changes, but there are none: these are the notes your site has.'}{' '}
+      {!drafted
+        ? 'A preview of the notes helper’s changes, but there are none: these are the notes your site has.'
+        : problem
+          ? `The notes you are writing cannot be shown yet, as your site could not be built with them: ${problem}`
+          : 'A preview of the notes you are writing, which are not on your site yet: its visitors still see the notes it has.'}{' '}
       <a href="notes.html" onClick={back}>Back to the notes helper</a>
     </p>
   );
