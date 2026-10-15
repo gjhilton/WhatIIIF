@@ -1,4 +1,4 @@
-import type { MouseEvent } from 'react';
+import { useState, type MouseEvent } from 'react';
 import type { Site } from '../site';
 import { inLanguage } from '../language';
 import { regionLinked, type Region } from '../address';
@@ -16,9 +16,21 @@ interface Props {
   cite: string;
   /** Moves the viewer to a part of the picture, as a detail link in the description asks. */
   show: (region: Region) => void;
+  /** Downloads the view as a picture. */
+  save: () => Promise<void>;
 }
 
-export function Details({ site, language, link, embed, cite, show }: Props) {
+export function Details({ site, language, link, embed, cite, show, save }: Props) {
+  const [saving, setSaving] = useState<'saving' | 'failed'>();
+  const saveView = async () => {
+    setSaving('saving');
+    try {
+      await save();
+      setSaving(undefined);
+    } catch {
+      setSaving('failed');
+    }
+  };
   const { manifestUrl, infoUrl, fullUrl, originalUrl, rights } = site;
   const words = (text: Site['title']) => inLanguage(text, language, site);
   const description = site.description && words(site.description);
@@ -86,20 +98,20 @@ export function Details({ site, language, link, embed, cite, show }: Props) {
           <a href={manifestUrl}>View manifest</a>
         </p>
 
-        {(fullUrl || originalUrl) && (
-          <>
-            <h2>Download</h2>
-            <p className="links">
-              {fullUrl && <a href={fullUrl}>Full-size JPEG{site.fullBytes && ` (${fileSize(site.fullBytes)})`}</a>}
-              {originalUrl && (
-                <a href={originalUrl} rel="nofollow">
-                  Original file
-                  {site.originalFormat && ` (${[formatName(site.originalFormat), site.originalBytes && fileSize(site.originalBytes)].filter(Boolean).join(', ')})`}
-                </a>
-              )}
-            </p>
-          </>
-        )}
+        <h2>Download</h2>
+        <p className="links">
+          <button type="button" className="link" onClick={saveView} disabled={saving === 'saving'}>
+            {saving === 'saving' ? 'Saving this view…' : 'This view, as a JPEG'}
+          </button>
+          {fullUrl && <a href={fullUrl}>Full-size JPEG{site.fullBytes && ` (${fileSize(site.fullBytes)})`}</a>}
+          {originalUrl && (
+            <a href={originalUrl} rel="nofollow">
+              Original file
+              {site.originalFormat && ` (${[formatName(site.originalFormat), site.originalBytes && fileSize(site.originalBytes)].filter(Boolean).join(', ')})`}
+            </a>
+          )}
+        </p>
+        {saving === 'failed' && <p className="problem" role="alert">This view could not be saved. Try again, or zoom out a little.</p>}
       </section>
 
       {/* On paper the copy fields are no use: the citation, with its link, is written out instead. */}

@@ -3,6 +3,7 @@ import type { Site, ViewerId } from './site';
 import { chooseLanguage, inLanguage, languageName } from './language';
 import { embedCode, linkTo, readAddress, withChoice, withRegion, withinImage, type Region } from './address';
 import { citation } from './describe';
+import { saveView } from './save';
 import { viewers } from './viewers';
 import { ViewerPane } from './components/ViewerPane';
 import { Details } from './components/Details';
@@ -100,6 +101,7 @@ export function App({ site }: { site: Site }) {
           embed={embedCode(linkTo(site, { viewer, language, region, embed: true }), title.text, site)}
           cite={citation(site, language, link, new Date())}
           show={show}
+          save={() => saveView(site.infoUrl, title.text, region)}
         />
       </main>
     </>

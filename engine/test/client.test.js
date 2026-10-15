@@ -5,6 +5,8 @@ import assert from 'node:assert/strict';
 import { embedCode, linkTo, readAddress, regionLinked, withChoice, withRegion } from '../client/src/address.ts';
 import { citation, fileSize, formatName, rightsName, scaleLength } from '../client/src/describe.ts';
 import { chooseLanguage, inLanguage } from '../client/src/language.ts';
+import { tilesFor } from '../client/src/save.ts';
+import { expectedRequests, imageInfo } from '../lib/service.js';
 
 const site = { width: 4000, height: 3000, pageUrl: 'https://gjh.github.io/harbour/', language: 'en', languages: ['en'] };
 const welsh = { ...site, language: 'cy', languages: ['cy', 'en', 'pt-BR'] };
@@ -169,3 +171,39 @@ for (const [perPixel, unit, bar] of scales) {
     assert.deepEqual(scaleLength(perPixel, unit), bar);
   });
 }
+
+// Saving a view assembles it from published tiles: only files the build publishes, covering the region exactly.
+const pictures = [[4000, 3000, 512], [4999, 3001, 512], [300, 200, 512], [2000, 37, 256], [10000, 8000, 512]];
+const parts = (W, H) => [undefined, { x: 0, y: 0, w: W, h: H }, { x: 1, y: 2, w: Math.ceil(W / 3), h: Math.ceil(H / 2) }, { x: W - 7, y: H - 5, w: 7, h: 5 }];
+
+for (const [W, H, tileSize] of pictures) {
+  for (const region of parts(W, H)) {
+    test(`saving ${region ? Object.values(region).join(',') : 'the whole'} of a ${W}x${H} picture asks only for published files, which cover it`, () => {
+      const info = imageInfo({ id: 'https://e.org/iiif/image', width: W, height: H, tileSize });
+      const published = new Set(expectedRequests(info));
+      const plan = tilesFor(info, region);
+      const part = region ?? { x: 0, y: 0, w: W, h: H };
+      assert.ok(Math.max(plan.width, plan.height) <= 4096, `${plan.width}x${plan.height} is no bigger than 4096 on a side`);
+      assert.deepEqual([plan.width, plan.height], [Math.ceil(part.w / plan.scale), Math.ceil(part.h / plan.scale)]);
+      for (const { path } of plan.tiles) assert.ok(published.has(path), `${path} is published`);
+      // Every pixel of the saved picture comes from some tile.
+      const covered = (px, py) => plan.tiles.some(({ x, y, w, h }) => px >= x && px < x + w && py >= y && py < y + h);
+      for (const [px, py] of [[0, 0], [plan.width - 1, 0], [0, plan.height - 1], [plan.width - 1, plan.height - 1], [Math.floor(plan.width / 2), Math.floor(plan.height / 2)]]) {
+        assert.ok(covered(px, py), `pixel ${px},${py} is covered`);
+      }
+    });
+  }
+}
+
+test('saving a view uses full-resolution tiles when they fit, and a lower level when they would not', () => {
+  const info = imageInfo({ id: 'x', width: 10000, height: 8000, tileSize: 512 });
+  assert.equal(tilesFor(info, { x: 0, y: 0, w: 3000, h: 2000 }).scale, 1);
+  assert.equal(tilesFor(info, { x: 0, y: 0, w: 5000, h: 2000 }).scale, 2);
+  assert.equal(tilesFor(info).scale, 4);
+});
+
+test('a tile is placed where its part of the picture falls in the saved one', () => {
+  const info = imageInfo({ id: 'x', width: 4000, height: 3000, tileSize: 512 });
+  const { tiles } = tilesFor(info, { x: 600, y: 520, w: 100, h: 100 });
+  assert.deepEqual(tiles, [{ path: '512,512,512,512/512,512/0/default.jpg', x: -88, y: -8, w: 512, h: 512 }]);
+});

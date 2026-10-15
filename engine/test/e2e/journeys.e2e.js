@@ -7,6 +7,7 @@ import { access, copyFile, readFile, readdir, rm, writeFile } from 'node:fs/prom
 import { createServer } from 'node:http';
 import { join } from 'node:path';
 import { chromium } from 'playwright';
+import sharp from 'sharp';
 import { missingFiles } from '../../lib/service.js';
 import { parseConfig } from '../../lib/config.js';
 import { inspect, makeImage, makePhonePhoto, makeVariant } from '../support/fixtures.js';
@@ -532,6 +533,18 @@ suite('a visitor shares the part of the picture they have zoomed into', () => {
     assert.ok(Math.abs(box.width / box.height - 500 / 400) < 0.05, `outlined in the region's shape (${box.width}x${box.height})`);
     assert.ok(box.x > pane.x && box.x + box.width < pane.x + pane.width, 'within the pane, as the region is narrower than it');
     await outline.waitFor({ state: 'detached', timeout: 10_000 });
+    await close();
+  });
+
+  test('the view on screen can be saved as a picture, made from the published tiles', async () => {
+    const { page, fetched, close } = await open(site, '?viewer=openseadragon#xywh=2000,1500,500,400');
+    await until(() => fetched.includes(tile(2048, 1536)), 'the view to open');
+    await page.waitForLoadState('networkidle');
+    const [x, y, w, h] = new URL(page.url()).hash.slice('#xywh='.length).split(',').map(Number);
+    const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'This view, as a JPEG' }).click()]);
+    assert.equal(download.suggestedFilename(), `harbour ${x},${y},${w},${h}.jpg`);
+    const { width, height, format } = await sharp(await download.path()).metadata();
+    assert.deepEqual({ width, height, format }, { width: w, height: h, format: 'jpeg' }, 'at full resolution, as it is under 4096 pixels a side');
     await close();
   });
 
