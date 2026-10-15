@@ -321,3 +321,15 @@ test('a release moves the v0 tag that copies call, and only in the template', as
   assert.match(text, /if: github\.event\.repository\.is_template/);
   assert.match(text, /git tag -f "\$major"/);
 });
+
+test('packages are kept up to date in the template only, and checked before they are offered', async () => {
+  const text = await workflow('dependencies.yml');
+  assert.match(text, /^# whatiiif: template only\./);
+  assert.match(text, /if: github\.event\.repository\.is_template/);
+  assert.match(text, /^\s+npm update$/m);
+  const [tested, offered] = [text.indexOf('npm run test:e2e'), text.indexOf('gh pr create')];
+  assert.ok(tested > 0 && offered > tested, 'the tests pass before the pull request is opened');
+  // A dependabot.yml would be copied into every site made from the template, and open pull requests there for
+  // packages its Update workflow looks after.
+  await assert.rejects(read(join(template, '.github/dependabot.yml')));
+});
