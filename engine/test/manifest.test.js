@@ -175,3 +175,46 @@ test('the canvas says how big the original is, as IIIF\'s physical dimensions se
   }
   assert.equal('service' in buildManifest(base).items[0], false);
 });
+
+const notes = {
+  intro: { en: '<p>About.</p>' },
+  items: [
+    { region: { x: 1, y: 2, w: 3, h: 4 }, title: { en: 'Boat & sail', cy: 'Cwch' }, text: { en: '<p>Red.</p>\n' } },
+    { region: { x: 5, y: 6, w: 7, h: 8 }, title: { en: 'Gull' } },
+  ],
+};
+
+test('notes on the picture are commenting annotations on its canvas, in each language they are written in', () => {
+  const m = buildManifest({ ...base, config: { ...base.config, language: 'en' }, notes });
+  const canvas = m.items[0];
+  assert.deepEqual(canvas.annotations, [
+    {
+      id: `${canvas.id}/notes`,
+      type: 'AnnotationPage',
+      items: [
+        {
+          id: `${canvas.id}/notes/1`,
+          type: 'Annotation',
+          motivation: 'commenting',
+          body: [
+            { type: 'TextualBody', value: '<p><strong>Boat &amp; sail</strong></p>\n<p>Red.</p>\n', format: 'text/html', language: 'en' },
+            { type: 'TextualBody', value: '<p><strong>Cwch</strong></p>\n', format: 'text/html', language: 'cy' },
+          ],
+          target: `${canvas.id}#xywh=1,2,3,4`,
+        },
+        {
+          id: `${canvas.id}/notes/2`,
+          type: 'Annotation',
+          motivation: 'commenting',
+          body: [{ type: 'TextualBody', value: '<p><strong>Gull</strong></p>\n', format: 'text/html', language: 'en' }],
+          target: `${canvas.id}#xywh=5,6,7,8`,
+        },
+      ],
+    },
+  ]);
+  assert.equal('annotations' in buildManifest(base).items[0], false, 'none without notes');
+});
+
+test('the manifest with notes passes the IIIF Presentation 3.0 schema', { skip: schemaUnavailable }, () => {
+  assert.deepEqual(schemaProblems(buildManifest({ ...base, config: { ...base.config, language: 'en' }, notes })), []);
+});

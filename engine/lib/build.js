@@ -66,6 +66,14 @@ export async function build({ contentDir, outDir, env = process.env, log = () =>
     }
     if (droppedFull) warn('The site would have been too big for GitHub Pages, so the full-size JPEG was left out.');
     if (quality < asked) warn(`The tiles were too big for GitHub Pages at quality ${asked}, so they were made at quality ${quality}.`);
+    for (const { region: { x, y, w, h }, title } of notes?.items ?? []) {
+      if (w < 1 || h < 1 || x + w > info.width || y + h > info.height) {
+        const pixels = `${info.width.toLocaleString('en-GB')} × ${info.height.toLocaleString('en-GB')} pixels`;
+        throw new Error(
+          `content/notes.md: the note "${title[config.language]}" is about ${x},${y},${w},${h}, which runs off the picture, ${pixels}. Copy its link from "Link to this view" again.`,
+        );
+      }
+    }
     const { dimensions } = config;
     if (dimensions && Math.abs(dimensions.width / dimensions.height / (info.width / info.height) - 1) > 0.05) {
       const pixels = `${info.width.toLocaleString('en-GB')} × ${info.height.toLocaleString('en-GB')} pixels`;
@@ -79,7 +87,7 @@ export async function build({ contentDir, outDir, env = process.env, log = () =>
 
     const originalLink = await original(image, config, env);
     const hasFull = config.publish.full && !droppedFull;
-    const manifest = buildManifest({ manifestId, imageId, pageUrl, info, config, hasFull, original: originalLink && { url: originalLink, format: image.format } });
+    const manifest = buildManifest({ manifestId, imageId, pageUrl, info, config, hasFull, notes, original: originalLink && { url: originalLink, format: image.format } });
     await writeFile(join(outDir, 'iiif/manifest.json'), JSON.stringify(manifest, null, 2));
 
     const site = {
@@ -95,6 +103,7 @@ export async function build({ contentDir, outDir, env = process.env, log = () =>
       dimensions: config.dimensions,
       metadata: config.metadata,
       description,
+      notes,
       viewer: config.viewer,
       colours: config.colours,
       manifestUrl: manifestId,

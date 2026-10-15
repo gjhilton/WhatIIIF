@@ -267,3 +267,22 @@ test('the settings helper is given the settings as written, and where to change 
   assert.equal(settings.tiles.quality, 70);
   assert.equal(editUrl, 'https://github.com/gjh/harbour/edit/main/content/whatiiif.toml');
 });
+
+test('notes on the picture reach the page, and the manifest as annotations a IIIF viewer shows', async () => {
+  const { content, out } = await setup();
+  await writeFile(join(content, 'notes.md'), '## [The boat](#xywh=100,200,300,400)\n\nRed sails.\n');
+  await build({ contentDir: content, outDir: out, env: github });
+  const site = await read(join(out, 'site.json'));
+  assert.deepEqual(site.notes, { items: [{ region: { x: 100, y: 200, w: 300, h: 400 }, title: { en: 'The boat' }, text: { en: '<p>Red sails.</p>\n' } }] });
+  const [page] = (await read(join(out, 'iiif/manifest.json'))).items[0].annotations;
+  assert.equal(page.items[0].target, 'https://gjh.github.io/harbour/iiif/canvas/1#xywh=100,200,300,400');
+});
+
+test('a note about a part outside the picture stops the build, saying how big the picture is', async () => {
+  const { content, out } = await setup();
+  await writeFile(join(content, 'notes.md'), '## [The boat](#xywh=1900,200,300,400)\n');
+  await assert.rejects(
+    build({ contentDir: content, outDir: out, env: {} }),
+    /content\/notes\.md: the note "The boat" is about 1900,200,300,400, which runs off the picture, 2,000 × 1,500 pixels\. Copy its link from "Link to this view" again\./,
+  );
+});
