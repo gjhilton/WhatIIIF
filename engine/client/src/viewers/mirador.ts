@@ -63,7 +63,8 @@ const adapter: ViewerAdapter = {
           maximized: true, // fill the pane; there is only ever one window
         },
       ],
-      window: { allowClose: false, allowMaximize: false, sideBarOpen: false },
+      // A picture with notes opens with Mirador's own list of them, which it reads from the manifest's annotations.
+      window: { allowClose: false, allowMaximize: false, sideBarOpen: Boolean(site.notes), defaultSideBarPanel: 'annotations' },
       workspace: { isWorkspaceAddVisible: false },
       workspaceControlPanel: { enabled: false },
       ...theme(),

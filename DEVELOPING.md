@@ -13,7 +13,8 @@ at the top of the run's page as annotations, with a summary below them (`report.
 - `content.js` reads `content/`: the one picture, or the one its `picture` setting links to, downloaded and told
   apart by its first bytes (`source.js`, which needs no npm packages because `has-image.js` runs before any are
   installed); `whatiiif.toml` through `config.js`, which explains every mistake in a sentence and suggests the
-  setting meant (`spelling.js`); the descriptions, turned into HTML; and notes on any file it will not use.
+  setting meant (`spelling.js`); the descriptions, turned into HTML; any notes on the picture (`notes.js`, an
+  optional extra); and any file it will not use.
 - `slice.js` cuts the picture into IIIF Image API 3.0 level 0 tiles with [sharp](https://sharp.pixelplumbing.com)
   (libvips). It first turns the image upright, flattens transparency onto white, converts it to sRGB using its
   colour profile, and drops its EXIF.
@@ -21,7 +22,7 @@ at the top of the run's page as annotations, with a summary below them (`report.
   ask for, and which of those a folder is missing. The build refuses to deploy a service that is missing any.
 - `budget.js` leaves out the full-size JPEG if the site would otherwise exceed GitHub Pages' size limit; if the
   tiles alone are still too big, `build.js` slices again at lower JPEG qualities, down to 45, until they fit.
-- `manifest.js` writes the IIIF Presentation 3.0 manifest. The original file is not published; the manifest links
+- `manifest.js` writes the IIIF Presentation 3.0 manifest, notes on the picture as commenting annotations. The original file is not published; the manifest links
   to it in the repository (`original.js`), unless the repository is private or the owner says not to, or at the
   address it was downloaded from.
 - `page.js` writes the title, icon (cut from the picture), the owner's colours, social-card tags, a no-JavaScript
@@ -31,7 +32,9 @@ at the top of the run's page as annotations, with a summary below them (`report.
 The page (`engine/client/src/`): `App.tsx` holds what is on screen (viewer, language, part of the picture),
 `address.ts` reads and writes the page's address so that any view is a link (and a link in the description can
 point at a detail), `language.ts` chooses the visitor's language, `describe.ts` names licences and downloads, and
-`viewers/` holds one adapter per viewer, each downloaded only when it is chosen. An adapter mounts its viewer, can
+`viewers/` holds one adapter per viewer, each downloaded only when it is chosen. Notes, when a site has them, are
+`components/Notes.tsx` (the list), `components/Tour.tsx`, and markers the OpenSeadragon adapter puts on the picture;
+Mirador shows them from the manifest. An adapter mounts its viewer, can
 move it to a part of the picture, and reports where the visitor has moved it. Every colour is in `colours.css`, with
 black and white swapped for dark mode; nothing else names one, and both viewers take theirs from it (`colours.ts`),
 opening again if the computer switches between light and dark.

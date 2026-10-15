@@ -9,6 +9,7 @@ import { ViewerPane } from './components/ViewerPane';
 import { Details } from './components/Details';
 import { Embed } from './components/Embed';
 import { Toggle } from './components/Toggle';
+import { Tour } from './components/Tour';
 
 const VIEWER_IDS = Object.keys(viewers) as ViewerId[];
 
@@ -23,6 +24,8 @@ export function App({ site }: { site: Site }) {
   const [language, setLanguage] = useState(() => chooseLanguage(site, [asked.language, ...navigator.languages]));
   const [region, setRegion] = useState(asked.region);
   const [goTo, setGoTo] = useState<{ region: Region }>();
+  const [note, setNote] = useState<number>(); // the note the viewer was last taken to
+  const [tour, setTour] = useState<number>(); // where the tour is, while it is being taken
   // Where a newly mounted viewer opens: the region in the link, then wherever the visitor has got to.
   const current = useRef(region);
 
@@ -42,6 +45,21 @@ export function App({ site }: { site: Site }) {
     setGoTo({ region: part });
     showInAddress(withRegion(location.href, part));
   }, []);
+  /** Takes the viewer to note `index`, and the tour with it if it is being taken. */
+  const showNote = useCallback(
+    (index: number) => {
+      const notes = site.notes?.items ?? [];
+      if (index < 0 || index >= notes.length) return;
+      setNote(index);
+      setTour((at) => (at === undefined ? undefined : index));
+      show(notes[index].region);
+    },
+    [site, show],
+  );
+  const startTour = () => {
+    setTour(0);
+    showNote(0);
+  };
   useEffect(() => {
     const followAddress = () => {
       const { region: part } = readAddress(location.href, site, VIEWER_IDS);
@@ -67,7 +85,16 @@ export function App({ site }: { site: Site }) {
   }, [title.text]);
 
   const viewerPane = (
-    <ViewerPane site={site} viewer={viewer} language={language} startAt={current} goTo={goTo} onRegionChange={onRegionChange} embedded={asked.embed} />
+    <ViewerPane
+      site={site}
+      viewer={viewer}
+      language={language}
+      startAt={current}
+      goTo={goTo}
+      onRegionChange={onRegionChange}
+      embedded={asked.embed}
+      onNote={asked.embed || !site.notes ? undefined : showNote}
+    />
   );
   const link = linkTo(site, { viewer, language, region });
   if (asked.embed) {
@@ -93,6 +120,7 @@ export function App({ site }: { site: Site }) {
         </div>
       </header>
       {viewerPane}
+      {tour !== undefined && <Tour site={site} language={language} at={tour} onGo={showNote} onEnd={() => setTour(undefined)} />}
       <main className="content">
         <Details
           site={site}
@@ -102,6 +130,9 @@ export function App({ site }: { site: Site }) {
           cite={citation(site, language, link, new Date())}
           show={show}
           save={() => saveView(site.infoUrl, title.text, region)}
+          note={note}
+          showNote={showNote}
+          startTour={startTour}
         />
       </main>
     </>

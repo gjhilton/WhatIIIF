@@ -17,12 +17,14 @@ interface Props {
   onRegionChange: (region: Region) => void;
   /** Inside someone else's page. */
   embedded: boolean;
+  /** Told which note's marker the visitor chose; without it, no markers are shown. */
+  onNote?: (index: number) => void;
 }
 
 const DARK = '(prefers-color-scheme: dark)';
 
 /** Mounts the chosen viewer adapter into a fresh container and tears it down on change. */
-export function ViewerPane({ site, viewer, language, startAt, goTo, onRegionChange, embedded }: Props) {
+export function ViewerPane({ site, viewer, language, startAt, goTo, onRegionChange, embedded, onNote }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const mounted = useRef<MountedViewer>(undefined);
   const [error, setError] = useState<string>();
@@ -57,6 +59,7 @@ export function ViewerPane({ site, viewer, language, startAt, goTo, onRegionChan
           onRegionChange,
           onError: fail,
           cooperative: embedded,
+          onNote,
         });
       })
       .catch((e: Error) => fail(`Could not load ${viewers[viewer].label}: ${e.message}`));
@@ -66,7 +69,7 @@ export function ViewerPane({ site, viewer, language, startAt, goTo, onRegionChan
       mounted.current?.destroy();
       mounted.current = undefined;
     };
-  }, [site, viewer, viewerLanguage, startAt, onRegionChange, embedded, dark]);
+  }, [site, viewer, viewerLanguage, startAt, onRegionChange, embedded, dark, onNote]);
 
   useEffect(() => {
     if (!goTo) return;

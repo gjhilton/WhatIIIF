@@ -29,7 +29,7 @@ function button(label: string, path: string, press: () => void): HTMLButtonEleme
 }
 
 const adapter: ViewerAdapter = {
-  mount(el, site, { region, onRegionChange, onError, cooperative }) {
+  mount(el, site, { region, onRegionChange, onError, cooperative, onNote }) {
     const viewer = OpenSeadragon({
       element: el,
       tileSources: site.infoUrl,
@@ -104,6 +104,19 @@ const adapter: ViewerAdapter = {
     viewer.addOnceHandler('open', () => {
       opened = true;
       if (waiting) fit(waiting, true);
+      // A numbered marker at the corner of each note's part of the picture, numbered as the list of notes is.
+      if (onNote) {
+        site.notes?.items.forEach(({ region: { x, y } }, i) => {
+          const marker = document.createElement('button');
+          marker.type = 'button';
+          marker.className = 'note-marker';
+          marker.textContent = String(i + 1);
+          marker.setAttribute('aria-label', `Note ${i + 1}`);
+          marker.addEventListener('pointerdown', (event) => event.stopPropagation()); // a press, not the start of a drag
+          marker.addEventListener('click', () => onNote(i));
+          viewer.addOverlay({ element: marker, location: viewer.world.getItemAt(0).imageToViewportCoordinates(x, y) });
+        });
+      }
       viewer.addHandler('animation-finish', () => {
         const { x, y, width, height } = viewer.world.getItemAt(0).viewportToImageRectangle(viewer.viewport.getBounds(true));
         onRegionChange({ x, y, w: width, h: height });

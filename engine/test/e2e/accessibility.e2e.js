@@ -33,6 +33,7 @@ value = "Oil on canvas"
 `,
   );
   await writeFile(join(repo, 'content/description.md'), '## About this view\n\nTaken from the north pier, by [the lighthouse](#xywh=200,300,400,500).\n');
+  await writeFile(join(repo, 'content/notes.md'), 'Two things to look for.\n\n## [The lighthouse](#xywh=200,300,400,500)\n\nStill lit.\n\n## [The boats](#xywh=1200,900,600,400)\n');
   await commit(repo, 'A picture');
   site = await deploy(repo);
   assert.equal(site.built, true, site.log);
@@ -55,12 +56,17 @@ const states = {
   // from its <noscript>, and the page's own script left out.
   'the page without JavaScript': { query: '', ready: '.fallback img', withoutScript: true },
   'the settings helper': { query: 'settings.html', ready: 'textarea' },
+  'the page on its tour of the notes': {
+    query: '?viewer=openseadragon',
+    ready: '.note-marker',
+    act: (page) => page.getByRole('button', { name: 'Take the tour' }).click(),
+  },
 };
 
 suite('nothing on the page stands in the way of someone using assistive technology', () => {
   for (const [name, { query, ready, ...options }] of Object.entries(states)) {
     test(name, async () => {
-      const { withoutScript, ...rest } = options;
+      const { withoutScript, act, ...rest } = options;
       const fileFor = (path) => join(site.dist, path);
       const opened = await browse(browser, { siteUrl: site.baseUrl, query, fileFor, ...rest });
       const { page, close } = opened;
@@ -72,6 +78,7 @@ suite('nothing on the page stands in the way of someone using assistive technolo
         await page.reload();
       }
       await page.locator(ready).first().waitFor();
+      if (act) await act(page);
       await page.waitForLoadState('networkidle');
       assert.deepEqual(await problemsIn(page), []);
       await close();

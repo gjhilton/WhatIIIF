@@ -48,6 +48,9 @@ You need a free GitHub account, and nothing else: everything below happens in yo
 | **Updates** | Improvements arrive by themselves, or as a pull request for you to merge. Your picture and settings are never touched. |
 | **IIIF** | The picture is published as a [IIIF](https://iiif.io) image service and manifest, so it opens in any IIIF viewer. |
 
+**Later, if you want them:** [notes on the picture, and a tour](#going-further-notes-on-the-picture-and-a-tour) that visitors
+can step through. Your site does not need them, and you can add them at any time.
+
 ## Make your site
 
 1. **Copy this template.** At the top of this page click **Use this template → Create a new repository**.
@@ -120,6 +123,38 @@ Under the picture on your site you will find, ready to copy:
 
 Under **Download** are the view on screen as a JPEG and, unless you switch them off, the full-size JPEG and the
 original file.
+
+## Going further: notes on the picture, and a tour
+
+This is optional, and more work than the rest: your site is complete without it. When you want to, you can write
+notes about parts of the picture. Each shows as a numbered marker on the picture and in a list under it, and in order
+they make a tour that visitors step through, the viewer moving to each part in turn. See them on the
+[notes demo](https://gjhilton.github.io/whatiiif-demo-notes/).
+
+1. On your site, zoom in on the part you want to write about, and copy **Link to this view**.
+2. In your repository, open the **content** folder and choose **Add file → Create new file**. Call it `notes.md`.
+3. Write each note as a heading that links to its part of the picture, followed by what you want to say. Anything
+   before the first note introduces them:
+
+   ```markdown
+   Three things to look for.
+
+   ## [The lighthouse](https://you.github.io/your-image/?viewer=openseadragon#xywh=1200,300,400,900)
+
+   Built in 1846, and still lit.
+
+   ## [The boats](https://you.github.io/your-image/?viewer=openseadragon#xywh=2400,1800,900,500)
+
+   The fishing fleet, coming home.
+   ```
+
+4. Click **Commit changes**. The tour follows the notes in the order they are written.
+
+For other languages, add `notes.cy.md` and so on, with the same notes in the same order; their headings need no
+links, as the notes in `notes.md` say where each part is: `## Y goleudy`.
+
+The notes are also written into the manifest, as IIIF annotations, so other IIIF viewers can show them: Mirador opens
+with its own list of them.
 
 ## Change the picture
 

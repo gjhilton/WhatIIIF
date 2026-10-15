@@ -593,6 +593,93 @@ suite('a visitor shares the part of the picture they have zoomed into', () => {
   });
 });
 
+suite('a museum adds notes to its picture, which make a tour', () => {
+  let site;
+  const notes = [
+    ['The lighthouse', '600,300,400,700'],
+    ['The boats', '2400,1800,900,500'],
+    ['A gull', '3300,200,200,150'],
+  ];
+  const holds = (page, [x0, y0, w0, h0]) => {
+    const [x, y, w, h] = (new URL(page.url()).hash.match(/^#xywh=(\d+),(\d+),(\d+),(\d+)$/) ?? []).slice(1).map(Number);
+    return x <= x0 + 2 && y <= y0 + 2 && x + w >= x0 + w0 - 2 && y + h >= y0 + h0 - 2 && w < 4000;
+  };
+  const at = (region) => region.split(',').map(Number);
+
+  before(async () => {
+    const repo = await templateCopy();
+    await copyFile(await makeImage(4000, 3000), join(repo, 'content/harbour.tif'));
+    const text = notes.map(([title, region]) => `## [${title}](https://example.github.io/my-image/?viewer=openseadragon#xywh=${region})\n\nAbout ${title.toLowerCase()}.\n`);
+    await writeFile(join(repo, 'content/notes.md'), `Three things to look for.\n\n${text.join('\n')}`);
+    await commit(repo, 'A picture with notes');
+    site = await deploy(repo);
+    assert.equal(site.built, true, site.log);
+  });
+
+  test('the notes are listed under the picture, numbered as markers on it, and each takes the viewer to its part', async () => {
+    const { page, problems, close } = await open(site, '?viewer=openseadragon');
+    await page.locator('.openseadragon-container').first().waitFor();
+    await page.waitForLoadState('networkidle');
+    assert.deepEqual(await page.locator('.notes li h3').allTextContents(), notes.map(([title]) => title));
+    const markers = page.getByRole('button', { name: /^Note \d$/ });
+    assert.equal(await markers.count(), 3);
+
+    await page.getByRole('button', { name: 'Note 2' }).click();
+    await until(() => holds(page, at(notes[1][1])), 'the viewer to show the boats');
+    assert.equal(await page.locator('.notes li[aria-current]').locator('h3').textContent(), 'The boats');
+
+    await page.getByRole('button', { name: 'A gull' }).click();
+    await until(() => holds(page, at(notes[2][1])), 'the viewer to show the gull');
+    assert.deepEqual(problems, []);
+    await close();
+  });
+
+  test('the tour goes through the notes in order, moving the viewer, and ends when asked', async () => {
+    const { page, close } = await open(site, '?viewer=openseadragon');
+    await page.locator('.openseadragon-container').first().waitFor();
+    await page.waitForLoadState('networkidle');
+    await page.getByRole('button', { name: 'Take the tour' }).click();
+    const tour = page.getByRole('region', { name: 'Tour' });
+    assert.equal(await tour.locator('.tour-step').textContent(), 'Note 1 of 3');
+    assert.equal(await tour.locator('h2').textContent(), 'The lighthouse');
+    assert.equal(await tour.getByRole('button', { name: 'Back' }).isDisabled(), true);
+    await until(() => holds(page, at(notes[0][1])), 'the viewer to show the lighthouse');
+
+    await tour.getByRole('button', { name: 'Next' }).click();
+    assert.equal(await tour.locator('h2').textContent(), 'The boats');
+    await until(() => holds(page, at(notes[1][1])), 'the viewer to show the boats');
+    await tour.getByRole('button', { name: 'Next' }).click();
+    assert.equal(await tour.locator('.tour-step').textContent(), 'Note 3 of 3');
+    await tour.getByRole('button', { name: 'Back' }).click();
+    assert.equal(await tour.locator('.tour-step').textContent(), 'Note 2 of 3');
+    await tour.getByRole('button', { name: 'Back' }).press('Escape');
+    assert.equal(await tour.count(), 0, 'Escape ends it');
+    await close();
+  });
+
+  test('in Mirador, the notes are in its own list of annotations', async () => {
+    const { page, problems, close } = await open(site, '?viewer=mirador');
+    const mirador = page.locator('.mirador-window');
+    await mirador.getByText('Showing 3 annotations').waitFor();
+    for (const [title] of notes) await mirador.getByText(title, { exact: true }).waitFor();
+    assert.deepEqual(problems, []);
+    await close();
+  });
+
+  test('a picture without notes has no markers, list or tour', async () => {
+    const plain = await deploy(await templateCopy().then(async (repo) => {
+      await copyFile(await makeImage(800, 600), join(repo, 'content/plain.tif'));
+      await commit(repo, 'A picture');
+      return repo;
+    }));
+    const { page, close } = await open(plain, '?viewer=openseadragon');
+    await page.locator('.openseadragon-container').first().waitFor();
+    assert.equal(await page.locator('.notes, .note-marker').count(), 0);
+    assert.equal(await page.getByRole('button', { name: 'Take the tour' }).count(), 0);
+    await close();
+  });
+});
+
 const lfs = await run('git', ['lfs', 'version']).then(({ code }) => code === 0, () => false);
 
 suite('an archive commits a 16-bit scan through Git LFS and changes no settings', { skip: !lfs && 'git-lfs is not installed' }, () => {

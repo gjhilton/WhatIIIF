@@ -4,6 +4,7 @@ import { inLanguage } from '../language';
 import { regionLinked, type Region } from '../address';
 import { fileSize, formatName, rightsName } from '../describe';
 import { CopyField } from './CopyField';
+import { Notes } from './Notes';
 
 interface Props {
   site: Site;
@@ -18,9 +19,13 @@ interface Props {
   show: (region: Region) => void;
   /** Downloads the view as a picture. */
   save: () => Promise<void>;
+  /** The note the viewer was last taken to, taking it to another, and starting the tour. */
+  note?: number;
+  showNote: (index: number) => void;
+  startTour: () => void;
 }
 
-export function Details({ site, language, link, embed, cite, show, save }: Props) {
+export function Details({ site, language, link, embed, cite, show, save, note, showNote, startTour }: Props) {
   const [saving, setSaving] = useState<'saving' | 'failed'>();
   const saveView = async () => {
     setSaving('saving');
@@ -59,6 +64,7 @@ export function Details({ site, language, link, embed, cite, show, save }: Props
         {description && (
           <div className="prose" lang={description.lang} onClick={followDetailLink} dangerouslySetInnerHTML={{ __html: description.text }} />
         )}
+        <Notes site={site} language={language} current={note} onShow={showNote} onTour={startTour} />
         <table className="meta">
           <tbody>
             {rows.map(([label, value], i) => (

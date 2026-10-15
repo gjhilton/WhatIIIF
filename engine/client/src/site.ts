@@ -1,7 +1,16 @@
+import type { Region } from './address';
+
 export type ViewerId = 'openseadragon' | 'mirador';
 
 /** One text in each language it was written in, such as { en: 'Harbour', cy: 'Harbwr' }. */
 export type Text = Record<string, string>;
+
+/** A note on the picture, from content/notes.md: the part it is about, its title, and its text as HTML. */
+export interface Note {
+  region: Region;
+  title: Text;
+  text?: Text;
+}
 
 /** Everything the page knows about the image. Written next to the page by engine/build.js. */
 export interface Site {
@@ -22,6 +31,8 @@ export interface Site {
   metadata: { label: Text; value: Text }[];
   /** HTML made from content/description*.md when the site was built. */
   description?: Text;
+  /** Notes on the picture, in the order of the tour, and what introduces them: an optional extra. */
+  notes?: { intro?: Text; items: Note[] };
   viewer: ViewerId;
   /** Colours chosen in whatiiif.toml, by their names in colours.css; the build writes them into the page. */
   colours?: Record<string, string>;
