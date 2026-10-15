@@ -244,7 +244,13 @@ test('the summary of a run says how many notes the picture has, and in which lan
   await writeFile(join(content, 'notes.md'), '## [The boat](#xywh=100,200,300,400)\n\n## [The gull](#xywh=10,20,30,40)\n');
   await writeFile(join(content, 'notes.cy.md'), '## Y cwch\n\n## Yr wylan\n');
   const { summary } = await buildInActions(content, await tempDir('dist'));
-  assert.match(summary, /\| Notes \| 2, in English and Welsh \|/);
+  assert.match(summary, /\| Notes \| 2, in English and Welsh\. \[Change them with the notes helper\]\(https:\/\/gjh\.github\.io\/harbour\/notes\.html\) \|/);
+});
+
+test('the summary of a run without notes says where they can be added', async () => {
+  const { content } = await setup();
+  const { summary } = await buildInActions(content, await tempDir('dist'));
+  assert.match(summary, /\| Notes \| None\. \[Add some with the notes helper\]\(https:\/\/gjh\.github\.io\/harbour\/notes\.html\) \|/);
 });
 
 test('the page is told who made the picture, when, and how big it is', async () => {
