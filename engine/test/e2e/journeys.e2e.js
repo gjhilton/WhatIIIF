@@ -522,6 +522,19 @@ suite('a visitor shares the part of the picture they have zoomed into', () => {
     });
   }
 
+  test('a link to a region outlines that region for a moment, so whoever opens it sees what was meant', async () => {
+    const { page, close } = await open(site, '?viewer=openseadragon#xywh=2000,1500,500,400');
+    const outline = page.locator('.region-outline');
+    await outline.waitFor();
+    await page.waitForLoadState('networkidle');
+    const box = await outline.boundingBox();
+    const pane = await page.locator('.viewer').boundingBox();
+    assert.ok(Math.abs(box.width / box.height - 500 / 400) < 0.05, `outlined in the region's shape (${box.width}x${box.height})`);
+    assert.ok(box.x > pane.x && box.x + box.width < pane.x + pane.width, 'within the pane, as the region is narrower than it');
+    await outline.waitFor({ state: 'detached', timeout: 10_000 });
+    await close();
+  });
+
   test('zooming in puts the view in the address and the link field, and that link opens the same view', async () => {
     const first = await open(site, '?viewer=openseadragon');
     assert.equal(new URL(first.page.url()).hash, '', 'the whole picture needs no fragment');

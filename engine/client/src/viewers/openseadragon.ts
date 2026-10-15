@@ -91,9 +91,15 @@ const adapter: ViewerAdapter = {
     viewer.addHandler('open-failed', ({ message }) => onError(`The picture could not be opened: ${message}`));
     let opened = false;
     let waiting = region; // a part to show once the picture is open
+    // The part a link asked for is outlined for a moment: the view is widened to the pane's shape, and the outline
+    // shows what was meant within it.
     const fit = (part: Region, immediately: boolean) => {
-      const image = viewer.world.getItemAt(0);
-      viewer.viewport.fitBounds(image.imageToViewportRectangle(part.x, part.y, part.w, part.h), immediately);
+      const area = viewer.world.getItemAt(0).imageToViewportRectangle(part.x, part.y, part.w, part.h);
+      viewer.viewport.fitBounds(area, immediately);
+      const outline = document.createElement('div');
+      outline.className = 'region-outline';
+      outline.addEventListener('animationend', () => viewer.removeOverlay(outline));
+      viewer.addOverlay({ element: outline, location: area });
     };
     viewer.addOnceHandler('open', () => {
       opened = true;
