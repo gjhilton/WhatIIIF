@@ -100,6 +100,15 @@ export function combineNotes(files, language) {
 }
 
 /**
+ * A paragraph's lines joined into one, as Markdown shows them, so that its text flows in the notes helper as it will
+ * on the page; but for a line ended by two spaces or a backslash, which breaks the paragraph there.
+ */
+function unwrap(paragraph) {
+  const lines = paragraph.split('\n');
+  return lines.reduce((text, line) => (/ {2,}$|\\$/.test(text) ? `${text}\n${line}` : `${text.trimEnd()} ${line.trimStart()}`));
+}
+
+/**
  * notes.md as its owner wrote it, for the notes helper to edit: what introduces the notes, and each note's title, the
  * part of the picture its heading links to (if it does) and its text, in Markdown. It takes what it is given, unlike
  * parseNotes: the helper says what is missing.
@@ -109,7 +118,7 @@ export function readNotesSource(text) {
   const items = [];
   for (const token of marked.lexer(text)) {
     if (!startsNote(token)) {
-      (items.at(-1)?.body ?? intro).push(token.raw);
+      (items.at(-1)?.body ?? intro).push(token.type === 'paragraph' ? unwrap(token.raw) : token.raw);
       continue;
     }
     const link = token.tokens.find((part) => part.type === 'link');
@@ -134,4 +143,32 @@ export function writeNotesSource({ intro, items }, pageUrl) {
     return [heading, text.trim()].filter(Boolean).join('\n\n');
   });
   return `${[intro.trim(), ...notes].filter(Boolean).join('\n\n')}\n`;
+}
+
+/**
+ * The notes being written in the notes helper, `{ intro, items: [{ region, title, text }] }`, each text a language
+ * map of Markdown, as the page shows notes (see combineNotes), so the page can preview them before they are
+ * published. A note not yet given a part of the picture is left out, a blank text left out, and a note with no
+ * title is called Untitled; undefined if no note has a part to show.
+ */
+export function previewNotes({ intro, items }, language) {
+  const filled = (texts = {}) => Object.entries(texts).filter(([, text]) => text.trim());
+  const pageHtml = (texts) => {
+    const entries = filled(texts).flatMap(([tag, text]) => {
+      const written = html(marked.lexer(text));
+      return written ? [[tag, written]] : [];
+    });
+    return entries.length ? Object.fromEntries(entries) : undefined;
+  };
+  const placed = items.filter(({ region }) => region);
+  if (placed.length === 0) return undefined;
+  const introHtml = pageHtml(intro);
+  return {
+    ...(introHtml && { intro: introHtml }),
+    items: placed.map(({ region, title, text }) => {
+      const textHtml = pageHtml(text);
+      const titles = Object.fromEntries(filled(title).map(([tag, words]) => [tag, words.trim()]));
+      return { region, title: { [language]: 'Untitled', ...titles }, ...(textHtml && { text: textHtml }) };
+    }),
+  };
 }

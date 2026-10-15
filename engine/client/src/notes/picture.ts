@@ -1,31 +1,46 @@
 // The picture in the notes helper: OpenSeadragon, with the part of the picture each note is about outlined and
-// numbered, and a way to mark a part by dragging across it.
+// numbered. The chosen note's part can be changed on the picture: its number dragged to move it, a corner to resize
+// it. A new part can be drawn by dragging across the picture.
 import OpenSeadragon from 'openseadragon';
 import type { Site } from '../site';
 import type { Region } from '../address';
 import { pageColour } from '../colours';
+import { addControls } from '../viewers/controls';
 
 export interface Picture {
   /** The part of the picture on screen, in whole pixels within it. */
   inView(): Region | undefined;
-  /** Moves the view to `region`, now or once the picture is open. */
+  /** Moves the view to `region`, with a margin round it, now or once the picture is open. */
   show(region: Region): void;
-  /** Outlines each note's part, numbered, the `selected` one more boldly. */
+  /** Outlines each note's part, numbered; the `selected` one more boldly, with corners to drag. */
   mark(regions: (Region | undefined)[], selected: number | undefined): void;
-  /** Lets the next drag across the picture mark a part, rather than move the picture; `onDrawn` is told which. */
-  draw(onDrawn: (region: Region) => void): void;
+  /**
+   * Lets the next drag across the picture mark a part, rather than move the picture, which still zooms; `onDrawn` is
+   * told which part, and `onStopped` that drawing stopped without one (Escape was pressed).
+   */
+  draw(onDrawn: (region: Region) => void, onStopped: () => void): void;
   stopDrawing(): void;
-  /** Shows the whole picture. */
-  home(): void;
   destroy(): void;
 }
 
-/** Opens the picture of `site` in `el`; `onChoose` is told which note's number the owner pressed. */
-export function openPicture(el: HTMLElement, site: Site, onChoose: (index: number) => void): Picture {
+export interface PictureEvents {
+  /** The owner pressed the number of note `index`. */
+  onChoose: (index: number) => void;
+  /** The owner moved or resized the part of note `index` on the picture. */
+  onAdjust: (index: number, region: Region) => void;
+}
+
+type Grip = 'move' | 'nw' | 'ne' | 'se' | 'sw';
+const CORNERS: Grip[] = ['nw', 'ne', 'se', 'sw'];
+const SLOP = 4; // screen pixels a press can wander and still be a press, not a drag
+const MARGIN = 0.15; // of a note's part, shown round it
+
+/** Opens the picture of `site` in `el`. */
+export function openPicture(el: HTMLElement, site: Site, { onChoose, onAdjust }: PictureEvents): Picture {
   const viewer = OpenSeadragon({
     element: el,
     tileSources: site.infoUrl,
-    showNavigationControl: false, // zoomed with the mouse wheel, a pinch, or the keyboard (+ and -)
+    showNavigationControl: false, // our own buttons, as on the page
     showNavigator: true,
     navigatorPosition: 'BOTTOM_RIGHT',
     navigatorBackground: pageColour('--viewer'),
@@ -33,6 +48,7 @@ export function openPicture(el: HTMLElement, site: Site, onChoose: (index: numbe
     navigatorDisplayRegionColor: pageColour('--ink'),
     gestureSettingsMouse: { clickToZoom: false },
   });
+  addControls(viewer);
   const image = () => viewer.world.getItemAt(0);
   let opened = false;
   let waiting: Region | undefined;
@@ -48,46 +64,122 @@ export function openPicture(el: HTMLElement, site: Site, onChoose: (index: numbe
     return right - left >= 1 && bottom - top >= 1 ? { x: left, y: top, w: right - left, h: bottom - top } : undefined;
   };
   const area = ({ x, y, w, h }: Region) => image().imageToViewportRectangle(x, y, w, h);
-  const fit = (region: Region) => viewer.viewport.fitBounds(area(region));
+  const fit = (region: Region) => {
+    const { x, y, width, height } = area(region);
+    viewer.viewport.fitBounds(new OpenSeadragon.Rect(x - width * MARGIN, y - height * MARGIN, width * (1 + 2 * MARGIN), height * (1 + 2 * MARGIN)));
+  };
+  /** Where a pointer is, in the picture's own pixels. */
+  const pointAt = (event: PointerEvent) => {
+    const { left, top } = viewer.canvas.getBoundingClientRect();
+    return image().viewportToImageCoordinates(viewer.viewport.pointFromPixel(new OpenSeadragon.Point(event.clientX - left, event.clientY - top)));
+  };
+
+  /** `region` with its `grip` dragged by `dx`, `dy` pixels of the picture: moved whole, or by one corner. */
+  const dragged = (region: Region, grip: Grip, dx: number, dy: number): Region | undefined => {
+    if (grip === 'move') {
+      const x = Math.min(Math.max(region.x + dx, 0), site.width - region.w);
+      const y = Math.min(Math.max(region.y + dy, 0), site.height - region.h);
+      return within(x, y, x + region.w, y + region.h);
+    }
+    let [left, top, right, bottom] = [region.x, region.y, region.x + region.w, region.y + region.h];
+    if (grip.includes('w')) left += dx;
+    if (grip.includes('e')) right += dx;
+    if (grip.includes('n')) top += dy;
+    if (grip.includes('s')) bottom += dy;
+    return within(left, top, right, bottom);
+  };
 
   let marks: HTMLElement[] = [];
   const unmark = () => {
     for (const mark of marks) viewer.removeOverlay(mark);
     marks = [];
   };
+  /**
+   * Lets a press on `handle` drag `grip` of note `index`'s part, `outline` following it; a press that does not
+   * move is left to be a click.
+   */
+  const grab = (handle: HTMLElement, outline: HTMLElement, index: number, region: Region, grip: Grip) => {
+    let wasDragged = false;
+    handle.addEventListener('pointerdown', (down) => {
+      down.stopPropagation(); // a drag of this, not of the picture
+      if (!down.isPrimary || down.button !== 0) return;
+      handle.setPointerCapture(down.pointerId);
+      const from = pointAt(down);
+      let now: Region | undefined;
+      wasDragged = false;
+      const move = (event: PointerEvent) => {
+        if (!wasDragged && Math.hypot(event.clientX - down.clientX, event.clientY - down.clientY) < SLOP) return;
+        wasDragged = true;
+        const at = pointAt(event);
+        now = dragged(region, grip, at.x - from.x, at.y - from.y) ?? now;
+        if (now) viewer.updateOverlay(outline, area(now));
+      };
+      const end = (event: PointerEvent) => {
+        handle.removeEventListener('pointermove', move);
+        handle.removeEventListener('pointerup', end);
+        handle.removeEventListener('pointercancel', end);
+        if (event.type === 'pointerup' && now) onAdjust(index, now);
+        else viewer.updateOverlay(outline, area(region));
+      };
+      handle.addEventListener('pointermove', move);
+      handle.addEventListener('pointerup', end);
+      handle.addEventListener('pointercancel', end);
+    });
+    // A press that became a drag is not also a click.
+    handle.addEventListener('click', (event) => {
+      if (wasDragged) event.stopImmediatePropagation();
+      wasDragged = false;
+    });
+  };
 
-  // Marking a part: a press starts a box, a drag sizes it, and letting go makes it the part.
+  // Drawing a part: a press starts a box, a drag sizes it, and letting go makes it the part. The picture still zooms
+  // meanwhile, by the wheel, a pinch or the buttons; it only stops moving under a drag.
   let drawn: ((region: Region) => void) | undefined;
+  let stopped: (() => void) | undefined;
   let start: OpenSeadragon.Point | undefined;
   let end: OpenSeadragon.Point | undefined;
   const box = document.createElement('div');
   box.className = 'drawn-area';
   const boxAround = (a: OpenSeadragon.Point, b: OpenSeadragon.Point) =>
     new OpenSeadragon.Rect(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(a.x - b.x), Math.abs(a.y - b.y));
-  const tracker = new OpenSeadragon.MouseTracker({
-    element: viewer.canvas,
-    pressHandler: (event) => {
-      if (!drawn) return;
-      start = end = viewer.viewport.pointFromPixel(event.position);
-      viewer.addOverlay({ element: box, location: boxAround(start, end) });
-    },
-    dragHandler: (event) => {
-      if (!start) return;
-      end = viewer.viewport.pointFromPixel(event.position);
-      viewer.updateOverlay(box, boxAround(start, end));
-    },
-    releaseHandler: () => {
-      if (!start || !end || !drawn) return;
-      viewer.removeOverlay(box);
-      const [a, b] = [image().viewportToImageCoordinates(start), image().viewportToImageCoordinates(end)];
-      start = end = undefined;
-      const region = within(a.x, a.y, b.x, b.y);
-      if (!region) return; // a press without a drag marks nothing: still drawing
-      const tell = drawn;
-      picture.stopDrawing();
-      tell(region);
-    },
+  const unbox = () => {
+    if (start) viewer.removeOverlay(box);
+    start = end = undefined;
+  };
+  // The viewer's own events, as a second tracker on its canvas would find each move already taken by the viewer's.
+  viewer.addHandler('canvas-press', (event) => {
+    if (!drawn) return;
+    start = end = viewer.viewport.pointFromPixel(event.position);
+    viewer.addOverlay({ element: box, location: boxAround(start, end) });
   });
+  viewer.addHandler('canvas-drag', (event) => {
+    if (!drawn) return;
+    event.preventDefaultAction = true; // drawing, not moving the picture
+    if (!start) return;
+    end = viewer.viewport.pointFromPixel(event.position);
+    viewer.updateOverlay(box, boxAround(start, end));
+  });
+  viewer.addHandler('canvas-drag-end', (event) => {
+    if (drawn) event.preventDefaultAction = true; // no flick
+  });
+  viewer.addHandler('canvas-pinch', () => drawn && unbox()); // two fingers zoom, and draw nothing
+  viewer.addHandler('canvas-release', () => {
+    if (!start || !end || !drawn) return;
+    const [a, b] = [image().viewportToImageCoordinates(start), image().viewportToImageCoordinates(end)];
+    unbox();
+    const region = within(a.x, a.y, b.x, b.y);
+    if (!region) return; // a press without a drag marks nothing: still drawing
+    const tell = drawn;
+    picture.stopDrawing();
+    tell(region);
+  });
+  const escape = (event: KeyboardEvent) => {
+    if (event.key !== 'Escape' || !drawn) return;
+    const tell = stopped;
+    picture.stopDrawing();
+    tell?.();
+  };
+  document.addEventListener('keydown', escape);
 
   const picture: Picture = {
     inView() {
@@ -109,34 +201,42 @@ export function openPicture(el: HTMLElement, site: Site, onChoose: (index: numbe
         if (!region) return;
         const outline = document.createElement('div');
         outline.className = 'note-area';
-        if (i === selected) outline.dataset.selected = '';
         const number = document.createElement('button');
         number.type = 'button';
         number.className = 'note-marker';
         number.textContent = String(i + 1);
         number.setAttribute('aria-label', `Note ${i + 1}`);
-        number.addEventListener('pointerdown', (event) => event.stopPropagation()); // a press, not the start of a drag
+        grab(number, outline, i, region, 'move'); // first, so a drag can keep its click from choosing the note
         number.addEventListener('click', () => onChoose(i));
         outline.append(number);
+        if (i === selected) {
+          outline.dataset.selected = '';
+          number.title = 'Drag to move this part';
+          for (const corner of CORNERS) {
+            const handle = document.createElement('div');
+            handle.className = 'note-handle';
+            handle.dataset.corner = corner;
+            handle.setAttribute('aria-hidden', 'true'); // the note's own buttons do this from the keyboard
+            outline.append(handle);
+            grab(handle, outline, i, region, corner);
+          }
+        }
         viewer.addOverlay({ element: outline, location: area(region) });
         marks.push(outline);
       });
     },
-    draw(onDrawn) {
+    draw(onDrawn, onStopped) {
       drawn = onDrawn;
-      viewer.setMouseNavEnabled(false);
+      stopped = onStopped;
       el.classList.add('drawing');
     },
     stopDrawing() {
-      drawn = undefined;
-      if (start) viewer.removeOverlay(box);
-      start = end = undefined;
-      viewer.setMouseNavEnabled(true);
+      drawn = stopped = undefined;
+      unbox();
       el.classList.remove('drawing');
     },
-    home: () => viewer.viewport.goHome(),
     destroy() {
-      tracker.destroy();
+      document.removeEventListener('keydown', escape);
       viewer.destroy();
     },
   };

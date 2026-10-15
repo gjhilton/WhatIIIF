@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { readContent } from '../lib/content.js';
-import { parseNotes, readNotesSource, writeNotesSource } from '../lib/notes.js';
+import { parseNotes, previewNotes, readNotesSource, writeNotesSource } from '../lib/notes.js';
 import { tempDir } from './support/tmp.js';
 
 async function content(files) {
@@ -152,4 +152,34 @@ test('a note without a part of the picture yet is read and written without a lin
   const { items } = readNotesSource('## The lighthouse\n\nTall.\n');
   assert.deepEqual(items, [{ title: 'The lighthouse', region: undefined, text: 'Tall.' }]);
   assert.equal(writeNotesSource({ intro: '', items }, PAGE), '## The lighthouse\n\nTall.\n');
+});
+
+test('the notes helper joins the lines of a paragraph, which Markdown shows as one, so its text flows as it will on the page', () => {
+  const written = 'Red and white,\non a rock.  \nLit at dusk,\nand at dawn.\\\nStill.\n\n- a list\n  goes on\n\n> a quotation\n> too\n';
+  const { intro, items } = readNotesSource(`${written}\n## [The lighthouse](#xywh=1,2,3,4)\n\n${written}`);
+  const flowing = 'Red and white, on a rock.  \nLit at dusk, and at dawn.\\\nStill.\n\n- a list\n  goes on\n\n> a quotation\n> too';
+  assert.equal(intro, flowing, 'a line ended by two spaces or a backslash still breaks there; lists and quotations are left alone');
+  assert.equal(items[0].text, flowing);
+  const page = (text) => parseNotes(text, 'notes.md', { linked: true }).items[0].text.replace(/\s+/g, ' ');
+  assert.equal(page(writeNotesSource({ intro, items }, PAGE)), page(`## [A](#xywh=1,2,3,4)\n\n${written}`), 'the page shows the same');
+});
+
+// The notes helper's preview: the site's own page, showing the notes being written instead of its own.
+test('a preview shows the notes being written as the page would, leaving out any not yet given a part of the picture', () => {
+  const preview = previewNotes({
+    intro: { en: 'Look *here*.', cy: '' },
+    items: [
+      { region: { x: 1, y: 2, w: 3, h: 4 }, title: { en: 'The lighthouse', cy: 'Y goleudy' }, text: { en: 'Tall.\n\n### Its lamp', cy: ' ' } },
+      { title: { en: 'Not placed yet' }, text: { en: 'Somewhere.' } },
+      { region: { x: 5, y: 6, w: 7, h: 8 }, title: { en: ' ' }, text: {} },
+    ],
+  }, 'en');
+  assert.deepEqual(preview, {
+    intro: { en: '<p>Look <em>here</em>.</p>\n' },
+    items: [
+      { region: { x: 1, y: 2, w: 3, h: 4 }, title: { en: 'The lighthouse', cy: 'Y goleudy' }, text: { en: '<p>Tall.</p>\n<h5>Its lamp</h5>\n' } },
+      { region: { x: 5, y: 6, w: 7, h: 8 }, title: { en: 'Untitled' } },
+    ],
+  });
+  assert.equal(previewNotes({ intro: { en: 'Only this.' }, items: [{ title: { en: 'Nowhere' }, text: {} }] }, 'en'), undefined, 'nothing to show on the picture');
 });
