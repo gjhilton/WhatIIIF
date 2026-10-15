@@ -2,7 +2,7 @@
 // helper keeps them in the browser, and the page, opened with ?notes-draft, shows them in place of the site's own.
 import type { MouseEvent } from 'react';
 import type { Site } from '../site';
-import { draftAsKept, loadDraft, previewOf } from './draft';
+import { draftAsKept, languagesOf, loadDraft, previewOf, problemsOf } from './draft';
 
 const storage = () => {
   try {
@@ -21,7 +21,10 @@ export function withDraft(site: Site): { site: Site; drafted: boolean; problem?:
   const draft = kept && loadDraft(kept, site.pageUrl);
   if (!draft) return { site, drafted: false, version: '' };
   const { notes, problem } = previewOf(draft.notes, site.language, site.pageUrl);
-  return { site: { ...site, notes }, drafted: true, problem, version: draftAsKept(kept, site.pageUrl) };
+  // Said as the helper says it, about a note, where it can be, rather than as the build says it about the file.
+  const files = languagesOf(draft.notes, site.language).map((language) => ({ file: language === site.language ? 'notes.md' : `notes.${language}.md`, language, text: '' }));
+  const said = problem && (problemsOf(draft.notes, files, site)[0]?.message ?? problem);
+  return { site: { ...site, notes }, drafted: true, problem: said, version: draftAsKept(kept, site.pageUrl) };
 }
 
 /**
@@ -47,7 +50,7 @@ export function PreviewBanner({ drafted, problem }: { drafted: boolean; problem?
       {!drafted
         ? 'A preview of the notes helper’s changes, but there are none: these are the notes your site has.'
         : problem
-          ? `The notes you are writing cannot be shown yet, as your site could not be built with them: ${problem}`
+          ? `The notes you are writing cannot be shown yet: ${problem}`
           : 'A preview of the notes you are writing, which are not on your site yet: its visitors still see the notes it has.'}{' '}
       <a href="notes.html" onClick={back}>Back to the notes helper</a>
     </p>

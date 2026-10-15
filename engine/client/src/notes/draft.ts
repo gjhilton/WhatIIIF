@@ -166,6 +166,12 @@ export function problemsOf(
   return problems;
 }
 
+/** Every language the notes have words in, `language` (the site's) first. */
+export function languagesOf(notes: Notes, language: string): string[] {
+  const words = [notes.intro, ...notes.items.flatMap(({ title, text }) => [title, text])];
+  return [...new Set([language, ...words.flatMap((texts) => Object.keys(texts))])];
+}
+
 /**
  * The notes as the site's page shows them (see combineNotes), made by the build's own code from the files the helper
  * would write, so the page can preview them before they are published. `language` is the site's. A note not yet
@@ -173,8 +179,7 @@ export function problemsOf(
  * show; and if the build could not read them, the problem it would give instead.
  */
 export function previewOf(notes: Notes, language: string, pageUrl: string): { notes?: Site['notes']; problem?: string } {
-  const words = [notes.intro, ...notes.items.flatMap(({ title, text }) => [title, text])];
-  const languages = [...new Set([language, ...words.flatMap((texts) => Object.keys(texts))])];
+  const languages = languagesOf(notes, language);
   const items = notes.items
     .filter(({ region }) => region)
     .map((note) => ({ ...note, title: Object.fromEntries(languages.map((tag) => [tag, note.title[tag]?.trim() || 'Untitled'])) }));

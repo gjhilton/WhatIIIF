@@ -998,7 +998,7 @@ suite('a museum adds notes to its picture, which make a tour', () => {
     const banner = preview.locator('.preview-banner');
     await until(async () => {
       await comeBack();
-      return /^The notes you are writing cannot be shown yet, as your site could not be built with them: content\/notes\.md: the note "Wings"/.test(await banner.textContent());
+      return /^The notes you are writing cannot be shown yet: Note 3 has a heading made with ##/.test(await banner.textContent());
     }, 'the preview to say why');
     await page.getByRole('textbox', { name: 'Text', exact: true }).fill('');
 

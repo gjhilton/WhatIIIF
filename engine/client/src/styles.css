@@ -177,7 +177,7 @@ a { color: var(--ink); text-underline-offset: 0.15em; }
 .settings .notes-publish button.link { padding: 0; border: 0; background: none; color: var(--error); font: inherit; text-align: left; text-decoration: underline; text-underline-offset: 0.15em; }
 .notes-files summary { margin: 1rem 0 0.5rem; font-weight: 600; cursor: pointer; }
 .notes-files textarea { display: block; width: 100%; margin-bottom: 0.5rem; font: 0.8rem/1.45 ui-monospace, monospace; }
-.notes-elsewhere { max-width: 40rem; margin: 2rem auto; padding: 0 16px; }
+.notes-elsewhere { max-width: 72rem; margin: 1.5rem auto; padding: 0 16px; } /* under the heading, as the page's text is */
 /* The page as a preview of notes not yet published, from the notes helper. */
 .preview-banner { margin: 0; padding: 0.6rem 16px; background: var(--ink); color: var(--paper); font-weight: 600; text-align: center; }
 .preview-banner a { color: var(--paper); }
