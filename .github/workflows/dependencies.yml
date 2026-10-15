@@ -1,6 +1,7 @@
 # whatiiif: template only. Once a week: updates every package to the newest version its range in package.json
 # allows, checks the template still passes its tests, and offers the change as one pull request, listing any newer
-# major versions, which need a person. (A dependabot.yml would be copied into every site made from the template,
+# major versions, which need a person. The packages are what sites are built with, so the pull request raises the
+# patch number in engine/VERSION, and merging it releases that version. (A dependabot.yml would be copied into every site made from the template,
 # and open pull requests there for packages its Update workflow looks after; security fixes come from Dependabot's
 # security updates, a setting of this repository alone.)
 name: Dependencies
@@ -61,6 +62,10 @@ jobs:
           if [[ -n "$majors" ]]; then
             body+=$'\n\n'"Newer versions outside the ranges, which need a person:"$'\n\n```\n'"$majors"$'\n```'
           fi
+          # What sites are built with has changed, so this is a new version: the next patch, released on merging.
+          version=$(tr -d '[:space:]' < engine/VERSION)
+          echo "${version%.*}.$(( ${version##*.} + 1 ))" > engine/VERSION
+          body+=$'\n\n'"Merging this releases $(cat engine/VERSION)."
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -B dependencies

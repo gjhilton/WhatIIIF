@@ -430,30 +430,141 @@ test('main is production: Live runs on every push to main, whatever changed, so 
   assert.doesNotMatch(text, /\n {4}paths:/);
 });
 
-/** The script of the Live step that checks sites have the shared steps on main, run in a repository like this one. */
-async function checkReleased({ release, main }) {
-  const text = await workflow('live.yml');
-  const [, block] = text.match(/name: Check that sites have the shared steps on main\n {8}run: \|\n((?: {10}.*\n)+)/);
+// Releasing: the version in engine/VERSION is the one thing anyone changes (.github/release.sh). A pull request that
+// changes what sites get raises it; merging that releases it; and Live fails if main ever gets ahead of a release.
+const releaseScript = join(template, '.github/release.sh');
+
+/**
+ * A repository like this one, released at 1.1.0 (tagged v1.1.0, with v1 and v0 too), its origin a bare repository,
+ * and a `gh` that makes releases there and answers for a merged pull request's description. `change` makes main's
+ * next commit.
+ */
+async function released(change = async () => {}) {
+  const origin = await tempDir('origin');
+  await git(origin, ['init', '-q', '--bare']);
   const here = await tempDir('here');
   await git(here, ['init', '-q']);
-  await mkdir(join(here, 'engine'), { recursive: true });
-  await mkdir(join(here, '.github/workflows'), { recursive: true });
-  await writeFile(join(here, 'engine/VERSION'), '1.0.0\n');
-  for (const [file, steps] of Object.entries(release)) await writeFile(join(here, '.github/workflows', file), steps);
-  await commit(here, '1.0.0');
-  await git(here, ['tag', 'v1']);
-  for (const [file, steps] of Object.entries(main)) await writeFile(join(here, '.github/workflows', file), steps);
-  await writeFile(join(here, 'README.md'), 'Changed on main since.\n'); // main has moved on, whether or not the steps have
+  await mkdir(join(here, 'engine/lib'), { recursive: true });
+  await mkdir(join(here, 'engine/test'), { recursive: true });
+  await writeFile(join(here, 'engine/VERSION'), '1.1.0\n');
+  await writeFile(join(here, 'engine/lib/build.js'), 'build\n');
+  await writeFile(join(here, 'README.md'), 'Read me.\n');
+  await commit(here, '1.1.0');
+  for (const tag of ['v1.1.0', 'v1']) await git(here, ['tag', tag]);
+  await git(here, ['tag', 'v0', 'HEAD']);
+  await git(here, ['remote', 'add', 'origin', origin]);
+  await git(here, ['push', '-q', 'origin', 'HEAD:refs/heads/main', '--tags']);
+  const base = (await git(here, ['rev-parse', 'HEAD'])).stdout.trim();
+  await change(here);
   await commit(here, 'main');
-  return run('bash', ['-c', block.replace(/^ {10}/gm, '')], { cwd: here });
+  const bin = await tempDir('bin');
+  const log = join(bin, 'calls');
+  await writeFile(
+    join(bin, 'gh'),
+    `#!/bin/bash
+echo "$*" >> "${log}"
+case "$1 $2" in
+  "api repos/someone/whatiiif/commits/"*) echo '## For you'; echo; echo 'A new thing.'; echo; echo '🤖 Generated with [Claude Code](https://claude.com/claude-code)' ;;
+  "release create")
+    tag=$3; target=; notes=
+    while [ $# -gt 0 ]; do case "$1" in --target) target=$2 ;; --notes-file) notes=$2 ;; esac; shift; done
+    [ -n "$notes" ] && cp "$notes" "${log}.notes"
+    git push -q origin "$target:refs/tags/$tag" ;;
+  *) echo "unexpected gh call: $*" >&2; exit 1 ;;
+esac
+`,
+  );
+  await chmod(join(bin, 'gh'), 0o755);
+  await writeFile(log, '');
+  const script = (...args) =>
+    run('bash', [releaseScript, ...args], { cwd: here, env: { PATH: `${bin}:${process.env.PATH}`, GITHUB_REPOSITORY: 'someone/whatiiif' } });
+  const tagged = async (tag) => (await run('git', ['rev-parse', '-q', '--verify', `${tag}^{commit}`], { cwd: origin })).stdout.trim();
+  return { here, base, script, tagged, head: (await git(here, ['rev-parse', 'HEAD'])).stdout.trim(), calls: () => read(log), notes: () => read(`${log}.notes`) };
 }
+const raise = (version) => (dir) => writeFile(join(dir, 'engine/VERSION'), `${version}\n`);
+const changeSites = (dir) => writeFile(join(dir, 'engine/lib/build.js'), 'better build\n');
 
-test('Live fails when the shared steps on main are not yet the ones sites run, at the tag of their major version', async () => {
-  const released = { 'publish.yml': 'steps\n', 'offer-update.yml': 'offer\n' };
-  assert.equal((await checkReleased({ release: released, main: released })).code, 0);
-  const ahead = await checkReleased({ release: released, main: { ...released, 'publish.yml': 'better steps\n' } });
-  assert.equal(ahead.code, 1);
-  assert.match(ahead.stdout, /::error title=Sites do not have the shared steps on main::\.github\/workflows\/publish\.yml differs from v1/);
+test('a pull request that changes what sites get must raise engine/VERSION; one that does not, need not', async () => {
+  const unraised = await released(changeSites);
+  const refused = await unraised.script('check', unraised.base);
+  assert.equal(refused.code, 1);
+  assert.match(refused.stdout, /::error title=Raise engine\/VERSION::This changes what sites get \(engine\/lib\/build\.js\), so it is a new version: raise engine\/VERSION above 1\.1\.0/);
+
+  for (const [what, change] of [
+    ['the README', (dir) => writeFile(join(dir, 'README.md'), 'Read me again.\n')],
+    ['a test', (dir) => writeFile(join(dir, 'engine/test/a.test.js'), 'test\n')],
+  ]) {
+    const docs = await released(change);
+    assert.equal((await docs.script('check', docs.base)).code, 0, what);
+  }
+
+  const raised = await released(async (dir) => {
+    await changeSites(dir);
+    await raise('1.2.0')(dir);
+  });
+  const passed = await raised.script('check', raised.base);
+  assert.equal(passed.code, 0, passed.stdout);
+  assert.match(passed.stdout, /Merging this releases 1\.2\.0\./);
+
+  const lowered = await released(raise('1.0.9'));
+  const backwards = await lowered.script('check', lowered.base);
+  assert.equal(backwards.code, 1);
+  assert.match(backwards.stdout, /::error title=engine\/VERSION must go up::1\.0\.9 is not above 1\.1\.0/);
+});
+
+test('merging a new engine/VERSION releases it: the tag, the GitHub release with the pull request’s words, and v1, which sites call', async () => {
+  const merged = await released(async (dir) => {
+    await changeSites(dir);
+    await raise('1.2.0')(dir);
+  });
+  const result = await merged.script('release');
+  assert.equal(result.code, 0, result.stderr);
+  assert.match(await merged.calls(), new RegExp(`^release create v1\\.2\\.0 --target ${merged.head} --title WhatIIIF 1\\.2\\.0 --notes-file `, 'm'));
+  assert.equal(await merged.notes(), '## For you\n\nA new thing.\n\n', 'the pull request’s description, without its tool line');
+  assert.equal(await merged.tagged('v1.2.0'), merged.head);
+  assert.equal(await merged.tagged('v1'), merged.head);
+  assert.equal(await merged.tagged('v0'), merged.base, 'another major version’s tag is left alone');
+
+  const again = await merged.script('release');
+  assert.equal(again.code, 0);
+  assert.match(again.stdout, /1\.2\.0 is released already\./);
+  assert.equal((await merged.calls()).match(/release create/g).length, 1, 'released once');
+});
+
+test('a pre-release is released as one, and leaves v1 on the last full release', async () => {
+  const merged = await released(raise('1.2.0-rc.1'));
+  assert.equal((await merged.script('release')).code, 0);
+  assert.match(await merged.calls(), /^release create v1\.2\.0-rc\.1 .* --prerelease$/m);
+  assert.equal(await merged.tagged('v1'), merged.base);
+});
+
+test('Live fails when main is ahead of the release of its engine/VERSION, or v1 is not on it', async () => {
+  const docs = await released((dir) => writeFile(join(dir, 'README.md'), 'Read me again.\n'));
+  const fine = await docs.script('released');
+  assert.equal(fine.code, 0, fine.stdout);
+  assert.match(fine.stdout, /Everything sites get on main is in 1\.1\.0, and v1 points at it\./);
+
+  const ahead = await released(changeSites);
+  const behind = await ahead.script('released');
+  assert.equal(behind.code, 1);
+  assert.match(behind.stdout, /::error title=main is ahead of v1\.1\.0::engine\/lib\/build\.js changed since 1\.1\.0 was released, without a new version/);
+
+  const unreleased = await released(raise('1.2.0'));
+  const missing = await unreleased.script('released');
+  assert.equal(missing.code, 1);
+  assert.match(missing.stdout, /::error title=1\.2\.0 is not released::/);
+});
+
+test('releasing runs first in Live, so the demos and checks see the release; pull requests are checked for a version', async () => {
+  const live = await workflow('live.yml');
+  assert.match(live, /\n {2}release:\n[\s\S]*?run: bash \.github\/release\.sh release\n/);
+  for (const job of ['demo', 'released']) assert.match(live, new RegExp(`\\n {2}${job}:\\n {4}needs: release\\n`), job);
+  assert.match(live, /run: bash \.github\/release\.sh released/);
+  const version = await workflow('version.yml');
+  assert.match(version, /^# whatiiif: template only\./);
+  assert.match(version, /\n {2}pull_request:\n/);
+  assert.match(version, /run: bash \.github\/release\.sh check "origin\/\$\{\{ github\.base_ref \}\}"/);
+  assert.match(await workflow('dependencies.yml'), /engine\/VERSION/, 'an update of the packages sites get is a new version too');
 });
 
 test('the trials in new repositories made from the template are run by hand, not by Live, which would need a token that may make and delete repositories', async () => {

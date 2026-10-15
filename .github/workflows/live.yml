@@ -6,8 +6,10 @@
 #   checks the live sites. Each is pushed to with a deploy key for it alone.
 # - screenshots: once both demos are up, remakes the README's screenshots of them on a Mac and commits any that look
 #   different to main.
-# - released: fails if the shared steps on main (publish.yml, offer-update.yml) are not those at the tag sites call
-#   them at (v1 for 1.x), which only a release moves: then sites do not have them, and a release is due.
+# - release: first, releases engine/VERSION if it is not released yet: merging a new version releases it
+#   (.github/release.sh).
+# - released: fails unless everything sites get on main is in the release of engine/VERSION, and the tag sites call
+#   the shared steps at (v1 for 1.x) points at it.
 # The trials in new repositories made from the template (engine/test/live) are run by hand, with `npm run test:live`:
 # see DEVELOPING.md. Copies of the template have no DEMO_REPOSITORY, so this does nothing there.
 name: Live
@@ -28,7 +30,23 @@ concurrency:
   group: live
 
 jobs:
+  release:
+    # Before anything else here, so the demos and the checks see the release.
+    if: vars.DEMO_REPOSITORY != ''
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # and the tags
+      - name: Release engine/VERSION, if it is not released yet
+        run: bash .github/release.sh release
+        env:
+          GH_TOKEN: ${{ github.token }}
+
   demo:
+    needs: release
     if: vars.DEMO_REPOSITORY != ''
     runs-on: ubuntu-24.04
     strategy:
@@ -68,25 +86,15 @@ jobs:
           E2E_SITE_URL: ${{ steps.demo.outputs.url }}
 
   released:
+    needs: release
     if: vars.DEMO_REPOSITORY != ''
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # and the tags
-      - name: Check that sites have the shared steps on main
-        run: |
-          major="v$(cut -d. -f1 engine/VERSION)"
-          if ! git rev-parse -q --verify "refs/tags/$major" > /dev/null; then
-            echo "::error title=No $major tag::Sites call the shared steps at $major, which no release has made yet: release."
-            exit 1
-          fi
-          ahead=$(git diff --name-only "$major" HEAD -- .github/workflows/publish.yml .github/workflows/offer-update.yml)
-          if [[ -n "$ahead" ]]; then
-            echo "::error title=Sites do not have the shared steps on main::$(echo $ahead) differs from $major, where sites call it: release, to move $major."
-            exit 1
-          fi
-          echo "Sites run the shared steps on main: they are those at $major."
+      - name: Check that everything sites get on main is released
+        run: bash .github/release.sh released
 
   screenshots:
     needs: demo

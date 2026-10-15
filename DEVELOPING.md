@@ -114,8 +114,9 @@ day. Copies of the template have no
   `DEMO_DEPLOY_KEY` and `NOTES_DEMO_DEPLOY_KEY` secrets.
 - **screenshots:** once both demos are up, remakes the README's screenshots of them on a Mac
   (`engine/test/support/readme-screenshots.js`) and commits to `main` any that look different. Pull before working.
-- **released:** fails if the shared steps on `main` (`publish.yml`, `offer-update.yml`) are not those at the tag sites
-  call them at (`v1` for 1.x): sites do not have them until a release moves that tag, so a release is due.
+- **release:** runs first, and releases `engine/VERSION` if it is not released yet (see Releasing).
+- **released:** fails if `main` holds a change to what sites get that no release includes, or the tag sites call the
+  shared steps at (`v1` for 1.x) is not on the latest release.
 The trials in repositories made from the template are run by hand, not by Live: `npm run test:live` makes public
 repositories with "Use this template" and tries the template in them as a newcomer would. Run them before every
 release, and after any change to the workflows or to what they run (the build, Deploy, Update), once it is on `main`
@@ -134,11 +135,25 @@ names the repository to delete by hand. The trials:
 
 ## Releasing
 
+`main` is production, and the version in `engine/VERSION` is the one thing anyone changes to release:
+
+1. A pull request that changes what sites get (`engine/` but for its tests and the README's pictures, the package
+   files, `.gitattributes`, and the four workflows sites run) raises `engine/VERSION`, by semantic versioning: a fix
+   1.1.0 → 1.1.1, something new 1.1.0 → 1.2.0. The **Version** check fails until it does. Its description becomes
+   the release's notes, so write it for the people who use WhatIIIF. A pull request that changes nothing sites get
+   (the README, tests, the template's own workflows) needs no new version.
+2. Merging it releases that version: Live's first job makes the tag `vX.Y.Z`, the GitHub release "WhatIIIF X.Y.Z",
+   and moves the tag of its major version (`v1` for 1.x) to it, which every copy calls the shared steps at. A
+   version with a hyphen (1.2.0-rc.1) is released as a pre-release and moves nothing.
+3. Live then fails if `main` ever holds a change to what sites get that no release includes, or the major
+   version's tag is not on the latest release.
+
+All of it is `.github/release.sh`. Run `npm run test:live` by hand before merging a new version, and the update
+trial after. The weekly dependency update raises the patch number itself. `release.yml` moves the major version's
+tag for a release made by hand, which should not be needed.
+
 Copies of the template update themselves from the repository named in `engine/UPSTREAM`
-(`.github/workflows/update.yml` and `engine/ci/update.sh`). To release, bump `engine/VERSION` and publish a GitHub
-release tagged `vX.Y.Z`; `release.yml` then moves the tag of its major version to it (`v0` for 0.x, `v1` for 1.x;
-a pre-release leaves it where it is), and every copy calling that tag runs its steps from then on. Run
-`npm run test:live` by hand before and after releasing (see above). An update replaces `engine/`, `package.json` and `package-lock.json` only, and is
-never offered to a copy already on that version or a later one. GitHub does not let the workflow change workflow
-files, so users copy those by hand; the pull request says when they need to, leaving out any workflow marked
-`# whatiiif: template only` (and `ci.yml` and `live.yml`, from before there was a marker).
+(`.github/workflows/update.yml` and `engine/ci/update.sh`). An update replaces `engine/`, `package.json` and
+`package-lock.json` only, and is never offered to a copy already on that version or a later one. GitHub does not let
+the workflow change workflow files, so users copy those by hand; the pull request says when they need to, leaving
+out any workflow marked `# whatiiif: template only` (and `ci.yml` and `live.yml`, from before there was a marker).
