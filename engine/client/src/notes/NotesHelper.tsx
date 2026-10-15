@@ -274,13 +274,22 @@ export function NotesHelper({ site, source, links: built }: { site: Site; source
     setRemoved({ note: items[at], at });
     setNotes((now) => ({ ...now, items: now.items.filter((note) => note.key !== key) }));
     if (selected === key) setSelected(undefined);
+    if (drawing === key) stopDrawing(); // its part is no longer wanted
+    setUndoFocus(true); // keyboard focus was on the button that went with the note: it goes to Undo
   };
   const undoRemove = () => {
     if (!removed) return;
     setNotes((now) => ({ ...now, items: [...now.items.slice(0, removed.at), removed.note, ...now.items.slice(removed.at)] }));
     setSelected(removed.note.key);
+    setReveal(`note-${removed.note.key}`); // and focus to the note put back
     setRemoved(undefined);
   };
+  const [undoFocus, setUndoFocus] = useState(false);
+  useEffect(() => {
+    if (!undoFocus) return;
+    document.querySelector<HTMLElement>('.notes-removed button')?.focus();
+    setUndoFocus(false);
+  }, [undoFocus]);
   const startAgain = () => {
     if (!confirm('Forget the changes you made, and start again from the notes your site has?')) return;
     setNotes(readNotes(files));
@@ -611,18 +620,28 @@ function Status({
           <button type="button" className="quiet" onClick={onStartAgain}>Start again from your site’s notes</button>
         </p>
       )}
-      <p aria-live="polite">
-        {count === 0 && !changed
-          ? 'No notes yet.'
-          : `${notes}${changed ? `. Changed, and not yet on your site${kept ? ': this browser keeps the changes until then' : ''}.` : ', as on your site.'}`}
+      <p>
+        <span aria-live="polite">
+          {count === 0 && !changed
+            ? 'No notes yet.'
+            : `${notes}${changed ? `. Changed, and not yet on your site${kept ? ': this browser keeps the changes until then' : ''}.` : ', as on your site.'}`}
+        </span>
+        {changed && !restored && (
+          <>
+            {' '}
+            <button type="button" className="quiet" onClick={onStartAgain}>Start again from your site’s notes</button>
+          </>
+        )}
       </p>
       {!kept && changed && <p className="problem">This browser will not keep your changes: put them on your site before you leave this page.</p>}
       {kept && previewable && (
         <p>
-          <a className="button" href="./?notes-draft" target="whatiiif-preview" onClick={onPreview}>
+          <a className="button" href="./?viewer=openseadragon&notes-draft" target="whatiiif-preview" onClick={onPreview}>
             Preview them on your site
           </a>{' '}
-          <span className="hint">Its page, with these notes and their tour, as visitors will see them.</span>
+          <span className="hint">
+            Its page, with these notes and their tour, as visitors will see them. (Mirador lists the notes your site has until these are on it.)
+          </span>
         </p>
       )}
     </div>

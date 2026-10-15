@@ -790,6 +790,12 @@ suite('a museum adds notes to its picture, which make a tour', () => {
     await note(1).click();
     await page.getByRole('textbox', { name: 'Title', exact: true }).fill('The lighthouse at dusk');
     await page.getByText('3 notes. Changed, and not yet on your site: this browser keeps the changes until then.').waitFor();
+    // Changes can be let go of at once, without a reload first.
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.getByRole('button', { name: 'Start again from your site’s notes' }).click();
+    assert.deepEqual(await written(), readNotesSource(source));
+    await note(1).click();
+    await page.getByRole('textbox', { name: 'Title', exact: true }).fill('The lighthouse at dusk');
     assert.equal(await page.getByRole('link', { name: 'Open notes.md on GitHub' }).getAttribute('href'), 'https://github.com/example/my-image/edit/main/content/notes.md');
     assert.deepEqual(problems, []);
     await close();
@@ -907,11 +913,16 @@ suite('a museum adds notes to its picture, which make a tour', () => {
     await page.getByRole('button', { name: 'Move note 3 up' }).click();
     assert.deepEqual(await titles(), ['The lighthouse', 'A gull', 'The boats']);
     await note(1).click();
-    await page.getByRole('button', { name: 'Remove note 1' }).click();
+    await page.getByRole('button', { name: 'Draw it: note 1' }).click();
+    const focused = () => page.evaluate(() => document.activeElement.textContent);
+    await page.getByRole('button', { name: 'Remove note 1' }).press('Enter');
+    assert.equal(await page.getByRole('button', { name: 'Stop drawing' }).count(), 0, 'a note removed while its part was being drawn stops the drawing');
     assert.deepEqual(await titles(), ['A gull', 'The boats']);
-    await page.getByRole('button', { name: 'Undo' }).click();
+    assert.equal(await focused(), 'Undo', 'keyboard focus goes from the button that went with the note to Undo');
+    await page.keyboard.press('Enter');
     assert.deepEqual(await titles(), ['The lighthouse', 'A gull', 'The boats']);
     assert.equal(await note(1).getAttribute('aria-expanded'), 'true', 'put back, and open again');
+    assert.equal(await note(1).evaluate((button) => button === document.activeElement), true, 'with keyboard focus');
 
     await page.getByRole('textbox', { name: 'Title', exact: true }).fill('');
     await page.getByRole('textbox', { name: 'Text', exact: true }).fill('## Its lamp\n\nBright.');

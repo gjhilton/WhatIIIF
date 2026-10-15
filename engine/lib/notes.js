@@ -120,15 +120,34 @@ export function readNotesSource(text) {
   const items = [];
   for (const token of marked.lexer(text)) {
     if (!startsNote(token)) {
-      (items.at(-1)?.body ?? intro).push(token.type === 'paragraph' ? unwrap(token.raw) : token.raw);
+      (items.at(-1)?.body ?? intro).push({ raw: token.raw, joined: token.type === 'paragraph' ? unwrap(token.raw) : token.raw });
       continue;
     }
     const link = token.tokens.find((part) => part.type === 'link');
     items.push({ title: plain(token.tokens).trim(), region: regionOf(link?.href), body: [] });
   }
-  const markdown = (raw) => raw.join('').trim();
+  // Joining a paragraph's lines can change how Markdown reads what follows it (a line underlined with dashes, say,
+  // takes the whole paragraph into its heading), so they are joined only where the page would show the same.
+  const markdown = (parts) => {
+    const [raw, joined] = [blocks(parts.map((part) => part.raw).join('')), blocks(parts.map((part) => part.joined).join(''))];
+    return joined !== raw && asShown(marked.parse(joined)) === asShown(marked.parse(raw)) ? joined : raw;
+  };
   return { intro: markdown(intro), items: items.map(({ title, region, body }) => ({ title, region, text: markdown(body) })) };
 }
+
+/** HTML as a browser shows it: a run of spaces as one, and none at the start or end of a block of text. */
+export const asShown = (html) =>
+  html
+    .replace(/\s+/g, ' ')
+    .replace(/(<(?:p|li|h[1-6]|td|th|blockquote)>) /g, '$1')
+    .replace(/ (<\/(?:p|li|h[1-6]|td|th|blockquote)>)/g, '$1')
+    .trim();
+
+/**
+ * Markdown without the blank lines before and after it, but with the spaces that start its first line, which can
+ * make it code.
+ */
+const blocks = (text) => text.replace(/^(?:[ \t]*\r?\n)+/, '').trimEnd();
 
 /** `text` escaped so Markdown shows every character of it as it is, rather than reading any as markup. */
 const literal = (text) => text.replace(/[\\`*_[\]<>&~#]/g, '\\$&');
@@ -142,7 +161,7 @@ export function writeNotesSource({ intro, items }, pageUrl) {
   const notes = items.map(({ title, region, text }) => {
     const words = literal(title.trim());
     const heading = region ? `## [${words}](${pageUrl}#xywh=${region.x},${region.y},${region.w},${region.h})` : `## ${words}`;
-    return [heading, text.trim()].filter(Boolean).join('\n\n');
+    return [heading, blocks(text)].filter(Boolean).join('\n\n');
   });
-  return `${[intro.trim(), ...notes].filter(Boolean).join('\n\n')}\n`;
+  return `${[blocks(intro), ...notes].filter(Boolean).join('\n\n')}\n`;
 }

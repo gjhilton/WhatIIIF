@@ -1,6 +1,6 @@
 // The notes helper's notes, apart from React and the picture: read from the notes files the site was built from,
 // written back to them, checked as the build will check them, and kept in the browser until they are published.
-import { combineNotes, parseNotes, readNotesSource, writeNotesSource } from '../../../lib/notes.js';
+import { asShown, combineNotes, parseNotes, readNotesSource, writeNotesSource } from '../../../lib/notes.js';
 import type { Region } from '../address';
 import type { Site } from '../site';
 
@@ -82,7 +82,7 @@ function sourceOf(notes: Notes, language: string, own: boolean, pageUrl: string)
  * alike); undefined if the build would not read it. A translation's parts are the site's own, so they are left out.
  */
 function shown(text: string, own: boolean): string | undefined {
-  const flat = (html?: string) => html?.replace(/\s+/g, ' ').trim();
+  const flat = (html?: string) => html && asShown(html);
   try {
     const { intro, items } = parseNotes(text, 'notes.md', { linked: false });
     return JSON.stringify({ intro: flat(intro), items: items.map(({ title, region, text: html }) => ({ title, text: flat(html), ...(own && { region }) })) });
