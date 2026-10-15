@@ -28,7 +28,7 @@ const open = (site, query, options) => browse(browser, { siteUrl: site.baseUrl, 
 test('a fresh copy of the template has nothing to publish yet, and says so instead of failing', async () => {
   const site = await deploy(await templateCopy());
   assert.equal(site.skipped, true);
-  assert.match(site.log, /::notice::No image in content\/ yet/);
+  assert.match(site.log, /::notice::No image in content\/ yet\. Commit one picture there \(TIFF, PNG, JPEG, WebP, AVIF or GIF\)/);
 });
 
 suite('a photographer uploads a phone photo on github.com and fills in every setting', () => {
@@ -664,6 +664,17 @@ suite('a museum adds notes to its picture, which make a tour', () => {
     for (const [title] of notes) await mirador.getByText(title, { exact: true }).waitFor();
     assert.deepEqual(problems, []);
     await close();
+  });
+
+  test('Mirador opens with its list of notes on the page, but not in a small embedded frame', async () => {
+    for (const [query, expanded] of [['?viewer=mirador', 'true'], ['?embed&viewer=mirador', 'false']]) {
+      const { page, problems, close } = await open(site, query);
+      const sidebar = page.locator('.mirador-window-menu-btn');
+      await sidebar.waitFor();
+      assert.equal(await sidebar.getAttribute('aria-expanded'), expanded, query);
+      assert.deepEqual(problems, []);
+      await close();
+    }
   });
 
   test('a picture without notes has no markers, list or tour', async () => {

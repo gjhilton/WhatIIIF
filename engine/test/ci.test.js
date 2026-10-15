@@ -320,6 +320,8 @@ test('a release moves the v0 tag that copies call, and only in the template', as
   assert.match(text, /^# whatiiif: template only\./);
   assert.match(text, /if: github\.event\.repository\.is_template/);
   assert.match(text, /git tag -f "\$major"/);
+  // A pre-release is for trying out: copies keep running the last full release.
+  assert.match(text, /if: github\.event\.repository\.is_template && !github\.event\.release\.prerelease/);
 });
 
 test('packages are kept up to date in the template only, and checked before they are offered', async () => {
@@ -342,4 +344,6 @@ test('after each change, the Live workflow publishes the template to both demos,
   }
   assert.match(text, /vars\[matrix\.demo\.repository\]/);
   assert.match(text, /secrets\[matrix\.demo\.key\]/);
+  // The demos run publish.yml at the commit tried, so a change to it alone is tried on them too.
+  assert.match(text, /paths: \[[^\]]*'\.github\/workflows\/publish\.yml'/);
 });

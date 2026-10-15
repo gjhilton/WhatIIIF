@@ -21,7 +21,7 @@ test('finds the single image, with its format and size, and ignores the settings
 });
 
 test('explains what to do when there is no image', async () => {
-  await assert.rejects(findImage(await named('whatiiif.toml')), /no image.*content\/.*tif, png, jpg/i);
+  await assert.rejects(findImage(await named('whatiiif.toml')), /no image.*content\/.*TIFF, PNG, JPEG, WebP, AVIF or GIF/i);
 });
 
 test('names every file when there is more than one image', async () => {
@@ -88,7 +88,7 @@ test('files in content/ that the site will not use are pointed out, with the nam
     'content/Whatiiif.toml.txt is not used; did you mean whatiiif.toml?',
     'content/description.welsh.md is not used: "welsh" is not a language code such as en, cy or de-CH.',
     'content/descripton.md is not used; did you mean description.md?',
-    'content/notes.txt is not used. content/ holds one picture, whatiiif.toml and description.md.',
+    'content/notes.txt is not used. content/ holds one picture, whatiiif.toml, description.md and notes.md.',
     'content/old.heic is not published: only harbour.jpg is.',
   ]);
 });
@@ -137,7 +137,7 @@ const badLinks = [
   ['a link to a web page about the picture', { body: '\n<!DOCTYPE html><html>' }, /is a web page, not a picture\. Use a link that downloads the picture itself/],
   ['a picture in a format that cannot be read yet', { body: Buffer.from('\0\0\0\x18ftypheic\0\0\0\0') }, /The picture at .* is an iPhone photo \(HEIC\), which cannot be read here\. Make it a JPEG first/],
   ['a JPEG 2000 file', { body: Buffer.from([0, 0, 0, 0x0c, 0x6a, 0x50, 0x20, 0x20, 0x0d, 0x0a]) }, /The picture at .* is a JPEG 2000 file, which is not supported yet\. Convert it to TIFF, PNG or JPEG/],
-  ['something that is not a picture at all', { body: 'PK\x03\x04' }, /The picture at .* is not a TIFF, PNG or JPEG/],
+  ['something that is not a picture at all', { body: 'PK\x03\x04' }, /The picture at .* is not a TIFF, PNG, JPEG, WebP, AVIF or GIF\./],
 ];
 
 for (const [what, answer, says] of badLinks) {

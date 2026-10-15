@@ -56,7 +56,32 @@ test('notes in another language follow the same order; their headings need no li
   assert.deepEqual(languages, ['en', 'cy']);
 });
 
+test('a notes file saved with a byte order mark, as some Windows editors save it, reads the same', async () => {
+  assert.deepEqual(await notesOf({ 'notes.md': `\uFEFF${NOTES}` }), await notesOf({ 'notes.md': NOTES }));
+});
+
+test('a heading underlined with dashes is part of a note’s text: only a ## heading starts a note', async () => {
+  const notes = await notesOf({ 'notes.md': '## [The lighthouse](#xywh=1,2,3,4)\n\nTall\n---\n\nAnd white.\n' });
+  assert.equal(notes.items.length, 1);
+  assert.equal(notes.items[0].text.en, '<h4>Tall</h4>\n<p>And white.</p>\n');
+});
+
 const mistakes = [
+  [
+    'a note with no title',
+    { 'notes.md': '## [](#xywh=1,2,3,4)\n\nTall.' },
+    /content\/notes\.md: note 1 has no title\. Write it between the square brackets: ## \[The lighthouse\]\(#xywh=1,2,3,4\)/,
+  ],
+  [
+    'a translated note with no title',
+    { 'notes.md': '## [Tall](#xywh=1,2,3,4)\n', 'notes.cy.md': '##\n\nTal.' },
+    /content\/notes\.cy\.md: note 1 has no title\. Write it after the ##\./,
+  ],
+  [
+    'a note with words outside its link',
+    { 'notes.md': '## [The lighthouse](#xywh=1,2,3,4) at night\n' },
+    /content\/notes\.md: the note "The lighthouse at night" has words outside its link\. Make the whole heading the link: ## \[The lighthouse at night\]\(#xywh=1,2,3,4\)/,
+  ],
   [
     'a note whose heading is not a link',
     { 'notes.md': '## The lighthouse\n\nTall.' },
@@ -85,4 +110,9 @@ test('a file named nearly like notes.md is pointed out, and not read', async () 
   const { notes, unused } = await readContent(await content({ 'note.md': '## [A](#xywh=1,1,1,1)' }));
   assert.equal(notes, undefined);
   assert.deepEqual(unused, ['content/note.md is not used; did you mean notes.md?']);
+});
+
+test('a description saved with a byte order mark reads the same', async () => {
+  const { description } = await readContent(await content({ 'description.md': '\uFEFF# Harbour\n\nBoats.\n' }));
+  assert.deepEqual(description, { en: '<h2>Harbour</h2>\n<p>Boats.</p>\n' });
 });

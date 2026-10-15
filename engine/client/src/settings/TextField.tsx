@@ -1,5 +1,5 @@
 import type { Text } from '../site';
-import { languageName } from '../language';
+import { htmlLang, languageName } from '../language';
 
 interface Props {
   label: string;
@@ -24,9 +24,9 @@ export function TextField({ label, hint, value = {}, language, multiline = false
   const withMain = (words: string): [string, string][] => [[language, words], ...translations];
   const box = (words: string, update: (words: string) => void, lang?: string, name = label) =>
     multiline ? (
-      <textarea value={words} lang={lang} rows={3} aria-label={name} onChange={(event) => update(event.target.value)} />
+      <textarea value={words} lang={lang && htmlLang(lang)} rows={3} aria-label={name} onChange={(event) => update(event.target.value)} />
     ) : (
-      <input value={words} lang={lang} aria-label={name} onChange={(event) => update(event.target.value)} />
+      <input value={words} lang={lang && htmlLang(lang)} aria-label={name} onChange={(event) => update(event.target.value)} />
     );
 
   return (

@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { embedCode, linkTo, readAddress, regionLinked, withChoice, withRegion } from '../client/src/address.ts';
 import { citation, fileSize, formatName, rightsName, scaleLength } from '../client/src/describe.ts';
-import { chooseLanguage, inLanguage } from '../client/src/language.ts';
+import { chooseLanguage, htmlLang, inLanguage } from '../client/src/language.ts';
 import { tilesFor } from '../client/src/save.ts';
 import { expectedRequests, imageInfo } from '../lib/service.js';
 
@@ -113,7 +113,8 @@ for (const [url, name] of licences) {
 
 test('downloads are described the way a computer shows files', () => {
   assert.deepEqual([fileSize(900), fileSize(48_000), fileSize(4_120_000), fileSize(123_400_000), fileSize(2_345_000_000)], ['1 KB', '48 KB', '4.1 MB', '123 MB', '2.3 GB']);
-  assert.deepEqual([formatName('image/tiff'), formatName('image/png'), formatName('image/jpeg')], ['TIFF', 'PNG', 'JPEG']);
+  const formats = ['image/tiff', 'image/png', 'image/jpeg', 'image/webp', 'image/avif', 'image/gif'];
+  assert.deepEqual(formats.map(formatName), ['TIFF', 'PNG', 'JPEG', 'WebP', 'AVIF', 'GIF']);
 });
 
 const choices = [
@@ -206,4 +207,8 @@ test('a tile is placed where its part of the picture falls in the saved one', ()
   const info = imageInfo({ id: 'x', width: 4000, height: 3000, tileSize: 512 });
   const { tiles } = tilesFor(info, { x: 600, y: 520, w: 100, h: 100 });
   assert.deepEqual(tiles, [{ path: '512,512,512,512/512,512/0/default.jpg', x: -88, y: -8, w: 512, h: 512 }]);
+});
+
+test('text in no particular language is not marked as in a language called "none"', () => {
+  assert.deepEqual(['cy', 'pt-BR', 'none'].map(htmlLang), ['cy', 'pt-BR', undefined]);
 });

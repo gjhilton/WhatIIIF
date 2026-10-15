@@ -24,12 +24,21 @@ export function parseNotes(text, file, { linked }) {
   const intro = [];
   const items = [];
   for (const token of marked.lexer(text)) {
-    if (token.type !== 'heading' || token.depth !== 2) {
+    // Only a ## heading starts a note: words underlined with dashes are a heading too, but one written by accident
+    // as often as not, and they stay in the note's text.
+    if (token.type !== 'heading' || token.depth !== 2 || !token.raw.startsWith('#')) {
       (items.at(-1)?.body ?? intro).push(token);
       continue;
     }
-    const link = token.tokens.length === 1 && token.tokens[0].type === 'link' ? token.tokens[0] : undefined;
+    const link = token.tokens.find((part) => part.type === 'link');
     const title = plain(token.tokens).trim();
+    if (!title) {
+      const where = link ? `between the square brackets: ## [The lighthouse](${link.href})` : 'after the ##.';
+      throw new Error(`content/${file}: note ${items.length + 1} has no title. Write it ${where}`);
+    }
+    if (link && token.tokens.some((part) => part !== link && plain([part]).trim())) {
+      throw new Error(`content/${file}: the note "${title}" has words outside its link. Make the whole heading the link: ## [${title}](${link.href})`);
+    }
     let region;
     if (link) {
       const match = REGION.exec(link.href);

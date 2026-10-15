@@ -1,5 +1,5 @@
 # Everything here is optional. Delete any line you don't need.
-# Commit ONE image (TIFF, PNG or JPEG) next to this file and push; the site builds itself.
+# Commit ONE picture (TIFF, PNG, JPEG, WebP, AVIF or GIF) next to this file and push; the site builds itself.
 # Or let your site's settings helper write this file for you: https://YOU.github.io/YOUR-REPOSITORY/settings.html
 
 # language = "en"               # the language your texts are in: en, cy, de-CH ...
@@ -19,8 +19,8 @@
 # title = { en = "Harbour", cy = "Harbwr" }
 
 # [[metadata]]                  # repeat this block for each extra field
-# label = "Date"
-# value = "1890"
+# label = "Medium"
+# value = "Oil on canvas"
 
 # [tiles]
 # size = 512                    # tile edge in pixels, 64 to 4096

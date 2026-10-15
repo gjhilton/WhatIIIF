@@ -36,7 +36,8 @@ export function fileSize(bytes: number): string {
 }
 
 /** A picture's media type by the name people know its format by. */
-export const formatName = (mediaType: string) => ({ 'image/tiff': 'TIFF', 'image/png': 'PNG', 'image/jpeg': 'JPEG' })[mediaType] ?? mediaType;
+export const formatName = (mediaType: string) =>
+  ({ 'image/tiff': 'TIFF', 'image/png': 'PNG', 'image/jpeg': 'JPEG', 'image/webp': 'WebP', 'image/avif': 'AVIF', 'image/gif': 'GIF' })[mediaType] ?? mediaType;
 
 /**
  * The picture cited as a reader sees it, in `language` and at the view in `link`: who made it and when, its title,

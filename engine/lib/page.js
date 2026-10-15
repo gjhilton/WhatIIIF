@@ -15,6 +15,7 @@ function inSiteLanguage(text, site) {
 /**
  * A published file showing the whole picture: the largest listed size no longer than `maxSide` on either side,
  * else the smallest. Only an image that fits one tile lists no sizes, and that is always published as full/max.
+ * (The smallest level is always listed, however long; see imageInfo in service.js.)
  * `path` is where it is in the image service.
  */
 export function wholeImage({ info, imageId, maxSide = 1200 }) {

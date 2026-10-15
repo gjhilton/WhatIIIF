@@ -46,7 +46,7 @@ export async function findImage(dir) {
     throw new Error(`${cannotRead(unsupported.join(', '))} and commit that in content/ instead.`);
   }
   if (images.length === 0) {
-    throw new Error('No image found in content/. Commit exactly one TIFF, PNG or JPEG (tif, png, jpg) there.');
+    throw new Error('No image found in content/. Commit exactly one picture there: a TIFF, PNG, JPEG, WebP, AVIF or GIF.');
   }
   if (images.length > 1) {
     throw new Error(`content/ must contain exactly one image, but found ${images.length}: ${images.join(', ')}. Remove the extras.`);

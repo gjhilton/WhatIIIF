@@ -49,7 +49,7 @@ function theme() {
 }
 
 const adapter: ViewerAdapter = {
-  mount(el, site, { language, region, onRegionChange }) {
+  mount(el, site, { language, region, onRegionChange, onNote }) {
     el.id = 'mirador-root';
     const aspect = () => el.clientWidth / el.clientHeight;
 
@@ -63,8 +63,9 @@ const adapter: ViewerAdapter = {
           maximized: true, // fill the pane; there is only ever one window
         },
       ],
-      // A picture with notes opens with Mirador's own list of them, which it reads from the manifest's annotations.
-      window: { allowClose: false, allowMaximize: false, sideBarOpen: Boolean(site.notes), defaultSideBarPanel: 'annotations' },
+      // A picture with notes opens with Mirador's own list of them, which it reads from the manifest's annotations;
+      // not in someone else's page, which shows no notes (`onNote` is given where notes are shown) and has less room.
+      window: { allowClose: false, allowMaximize: false, sideBarOpen: Boolean(site.notes && onNote), defaultSideBarPanel: 'annotations' },
       workspace: { isWorkspaceAddVisible: false },
       workspaceControlPanel: { enabled: false },
       ...theme(),

@@ -67,3 +67,8 @@ test('what a form gives it, blank texts and dimensions as typed, is written as t
   const form = { ...parseConfig(''), title: { en: 'Harbour', cy: '  ' }, summary: { en: '' }, dimensions: '120 × 80 cm' };
   assert.deepEqual(parseConfig(writeConfig(form)), { ...parseConfig(''), title: { en: 'Harbour' }, dimensions: { width: 120, height: 80, unit: 'cm', text: '120 × 80 cm' } });
 });
+
+test('a number left blank in the form is left out of the file, so the default is used', () => {
+  const form = { ...parseConfig(''), tiles: { size: Number.NaN, quality: 70 } };
+  assert.deepEqual(parseConfig(writeConfig(form)).tiles, { size: 512, quality: 70 });
+});

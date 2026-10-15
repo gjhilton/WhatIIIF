@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { writeFile, readFile, copyFile, rm, readdir } from 'node:fs/promises';
+import { access, writeFile, readFile, copyFile, rm, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { build } from '../lib/build.js';
 import { missingFiles } from '../lib/service.js';
@@ -285,4 +285,21 @@ test('a note about a part outside the picture stops the build, saying how big th
     build({ contentDir: content, outDir: out, env: {} }),
     /content\/notes\.md: the note "The boat" is about 1900,200,300,400, which runs off the picture, 2,000 × 1,500 pixels\. Copy its link from "Link to this view" again\./,
   );
+});
+
+test('a picture cut into tiles over 2000 pixels across, without the full-size JPEG, still has an icon, a card and a thumbnail', async () => {
+  const content = await tempDir('content');
+  const out = await tempDir('dist');
+  await copyFile(await makeImage(4100, 100), join(content, 'scroll.tif'));
+  await writeFile(join(content, 'whatiiif.toml'), '[tiles]\nsize = 2100\n[publish]\nfull = false');
+  await writeFile(join(out, 'index.html'), builtPage);
+  await build({ contentDir: content, outDir: out, env: {} });
+  const manifest = await read(join(out, 'iiif/manifest.json'));
+  const html = await readFile(join(out, 'index.html'), 'utf8');
+  const fallback = html.match(/<img src="([^"]+)"/)[1];
+  for (const url of [manifest.thumbnail[0].id, manifest.items[0].items[0].items[0].body.id, fallback]) {
+    await access(join(out, url.replace('http://localhost:4173/', '')));
+  }
+  await access(join(out, 'icon.png'));
+  await access(join(out, 'card.jpg'));
 });

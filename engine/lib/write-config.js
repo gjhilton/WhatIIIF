@@ -19,10 +19,10 @@ function text(map, language) {
   return `{ ${entries.map(([tag, words]) => `${key(tag)} = ${quoted(words)}`).join(', ')} }`;
 }
 
-/** `[name]` with the entries of `table` that differ from `defaults`, if any do. */
+/** `[name]` with the entries of `table` that differ from `defaults`, if any do; a number left blank in a form is NaN. */
 function section(name, table = {}, defaults = {}) {
   const lines = Object.entries(table)
-    .filter(([setting, value]) => value !== undefined && value !== '' && value !== defaults[setting])
+    .filter(([setting, value]) => value !== undefined && value !== '' && !Number.isNaN(value) && value !== defaults[setting])
     .map(([setting, value]) => `${key(setting)} = ${typeof value === 'string' ? quoted(value) : value}`);
   return lines.length ? [`[${name}]`, ...lines].join('\n') : undefined;
 }
