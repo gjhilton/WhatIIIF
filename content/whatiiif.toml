@@ -29,6 +29,7 @@
 # [publish]
 # full = true                   # false = no full-size JPEG download (saves site space)
 # original = true               # false = no link to download the picture as you committed it
+# footer = true                 # false = no "Published with WhatIIIF" line at the foot of the page
 
 # [colours]                     # your own, in place of black on white (and white on black in dark mode)
 # paper = "#fdf6e3"             # the background
