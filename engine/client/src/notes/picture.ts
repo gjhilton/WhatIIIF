@@ -32,7 +32,8 @@ export interface PictureEvents {
 
 type Grip = 'move' | 'nw' | 'ne' | 'se' | 'sw';
 const CORNERS: Grip[] = ['nw', 'ne', 'se', 'sw'];
-const SLOP = 4; // screen pixels a press can wander and still be a press, not a drag
+// Screen pixels a press can wander and still be a press, not a drag: a finger wanders further than a mouse.
+const SLOP = { mouse: 4, pen: 6, touch: 12 } as Record<string, number>;
 const MARGIN = 0.15; // of a note's part, shown round it
 
 /** Opens the picture of `site` in `el`. */
@@ -68,10 +69,13 @@ export function openPicture(el: HTMLElement, site: Site, { onChoose, onAdjust }:
     const { x, y, width, height } = area(region);
     viewer.viewport.fitBounds(new OpenSeadragon.Rect(x - width * MARGIN, y - height * MARGIN, width * (1 + 2 * MARGIN), height * (1 + 2 * MARGIN)));
   };
+  // Pointers are measured against the picture as it is on screen (`true`), which differs from where it is heading
+  // while it zooms.
+  const fromPixel = (point: OpenSeadragon.Point) => viewer.viewport.pointFromPixel(point, true);
   /** Where a pointer is, in the picture's own pixels. */
   const pointAt = (event: PointerEvent) => {
     const { left, top } = viewer.canvas.getBoundingClientRect();
-    return image().viewportToImageCoordinates(viewer.viewport.pointFromPixel(new OpenSeadragon.Point(event.clientX - left, event.clientY - top)));
+    return image().viewportToImageCoordinates(fromPixel(new OpenSeadragon.Point(event.clientX - left, event.clientY - top)));
   };
 
   /** `region` with its `grip` dragged by `dx`, `dy` pixels of the picture: moved whole, or by one corner. */
@@ -108,7 +112,7 @@ export function openPicture(el: HTMLElement, site: Site, { onChoose, onAdjust }:
       let now: Region | undefined;
       wasDragged = false;
       const move = (event: PointerEvent) => {
-        if (!wasDragged && Math.hypot(event.clientX - down.clientX, event.clientY - down.clientY) < SLOP) return;
+        if (!wasDragged && Math.hypot(event.clientX - down.clientX, event.clientY - down.clientY) < (SLOP[down.pointerType] ?? SLOP.mouse)) return;
         wasDragged = true;
         const at = pointAt(event);
         now = dragged(region, grip, at.x - from.x, at.y - from.y) ?? now;
@@ -149,14 +153,14 @@ export function openPicture(el: HTMLElement, site: Site, { onChoose, onAdjust }:
   // The viewer's own events, as a second tracker on its canvas would find each move already taken by the viewer's.
   viewer.addHandler('canvas-press', (event) => {
     if (!drawn) return;
-    start = end = viewer.viewport.pointFromPixel(event.position);
+    start = end = fromPixel(event.position);
     viewer.addOverlay({ element: box, location: boxAround(start, end) });
   });
   viewer.addHandler('canvas-drag', (event) => {
     if (!drawn) return;
     event.preventDefaultAction = true; // drawing, not moving the picture
     if (!start) return;
-    end = viewer.viewport.pointFromPixel(event.position);
+    end = fromPixel(event.position);
     viewer.updateOverlay(box, boxAround(start, end));
   });
   viewer.addHandler('canvas-drag-end', (event) => {
@@ -206,7 +210,9 @@ export function openPicture(el: HTMLElement, site: Site, { onChoose, onAdjust }:
         number.className = 'note-marker';
         number.textContent = String(i + 1);
         number.setAttribute('aria-label', `Note ${i + 1}`);
-        grab(number, outline, i, region, 'move'); // first, so a drag can keep its click from choosing the note
+        if (i === selected) grab(number, outline, i, region, 'move'); // first, so a drag can keep its click from choosing the note
+        // Any other number is only pressed, to open its note: a tap that wanders a little moves nothing.
+        else number.addEventListener('pointerdown', (event) => event.stopPropagation()); // a press, not the start of a pan
         number.addEventListener('click', () => onChoose(i));
         outline.append(number);
         if (i === selected) {

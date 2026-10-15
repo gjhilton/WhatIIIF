@@ -14,15 +14,15 @@ const root = createRoot(document.getElementById('root')!);
  */
 async function preview(site: Site) {
   const { withDraft, PreviewBanner } = await import('./notes/preview');
-  let shown: number | undefined | null = null;
+  let shown: string | undefined;
   const show = () => {
-    const { site: drafted, saved } = withDraft(site);
-    if (saved === shown) return;
-    shown = saved;
+    const { site: previewed, drafted, version } = withDraft(site);
+    if (version === shown) return;
+    shown = version;
     root.render(
       <StrictMode>
-        <PreviewBanner saved={saved} />
-        <App key={saved} site={drafted} />
+        <PreviewBanner drafted={drafted} />
+        <App key={version} site={previewed} />
       </StrictMode>,
     );
   };

@@ -3,7 +3,7 @@
 // the TypeScript as it is, its types stripped.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readNotes, writeNotes, problemsOf, loadDraft, saveDraft, clearDraft, sameFiles, newNote } from '../client/src/notes/draft.ts';
+import { readNotes, writeNotes, problemsOf, loadDraft, saveDraft, clearDraft, sameFiles, newNote, previewOf } from '../client/src/notes/draft.ts';
 
 const PAGE = 'https://gjh.github.io/harbour/';
 const site = { width: 4000, height: 3000, pageUrl: PAGE, language: 'en' };
@@ -87,6 +87,28 @@ test('whatever the build would refuse is said, note by note, so the helper can t
 test('removing every note is not how to have none: notes.md is deleted for that', () => {
   assert.deepEqual(problemsOf({ intro: { en: '', cy: '' }, items: [] }, files, site), [{ message: 'There are no notes. To have none, delete notes.md and notes.cy.md instead.' }]);
   assert.deepEqual(problemsOf({ intro: { en: '' }, items: [] }, [{ file: 'notes.md', language: 'en', text: '' }], site), [], 'a site that never had notes has nothing to fix');
+  assert.deepEqual(problemsOf({ intro: { en: 'Hello there.' }, items: [] }, [{ file: 'notes.md', language: 'en', text: '' }], site), [
+    { key: 'intro', message: 'An introduction needs notes to introduce: add a note, or leave the introduction empty.' },
+  ]);
+});
+
+test('the preview shows the notes as the build would make them from the files written, leaving out any with no part yet', () => {
+  const notes = {
+    intro: { en: 'Look.\n\n[guide]: https://example.org/guide', cy: 'Edrychwch.' },
+    items: [
+      { key: 1, region: { x: 1, y: 2, w: 3, h: 4 }, title: { en: 'The lighthouse', cy: 'Y goleudy' }, text: { en: 'See [the guide][guide].', cy: '' } },
+      { key: 2, title: { en: 'Not placed yet', cy: '' }, text: { en: 'Somewhere.' } },
+      { key: 3, region: { x: 5, y: 6, w: 7, h: 8 }, title: { en: ' ', cy: 'Gwylan' }, text: {} },
+    ],
+  };
+  assert.deepEqual(previewOf(notes, 'en', PAGE), {
+    intro: { en: '<p>Look.</p>\n', cy: '<p>Edrychwch.</p>\n' },
+    items: [
+      { region: { x: 1, y: 2, w: 3, h: 4 }, title: { en: 'The lighthouse', cy: 'Y goleudy' }, text: { en: '<p>See <a href="https://example.org/guide">the guide</a>.</p>\n' } },
+      { region: { x: 5, y: 6, w: 7, h: 8 }, title: { en: 'Untitled', cy: 'Gwylan' } },
+    ],
+  });
+  assert.equal(previewOf({ intro: { en: 'Only this.' }, items: [notes.items[1]] }, 'en', PAGE), undefined, 'nothing to show on the picture');
 });
 
 test('the site is known to have the notes copied from the helper once it is rebuilt, however the file was saved', () => {
@@ -95,6 +117,14 @@ test('the site is known to have the notes copied from the helper once it is rebu
   assert.equal(sameFiles(files.map((file) => ({ ...file, text: file.text.replace(/\n/g, '\r\n') })), written), true, 'with Windows line endings');
   assert.equal(sameFiles(files, [written[0].replace('still lit', 'dark'), written[1]]), false);
   assert.equal(sameFiles(files.slice(0, 1), written), false, 'a file fewer');
+});
+
+test('two notes files are the same when visitors would see the same, judged by the build’s own reading of them', () => {
+  const site = [{ file: 'notes.md', language: 'en', text: '## [Hours](#xywh=1,2,3,4)\n\nOpening hours:\n- Mon 9-5\n- Tue 9-5\n' }];
+  assert.equal(sameFiles(site, [`## [Hours](${PAGE}?viewer=mirador#xywh=1,2,3,4)\n\nOpening hours:\n\n- Mon 9-5\n- Tue 9-5\n`]), true, 'written differently');
+  assert.equal(sameFiles(site, ['## [Hours](#xywh=1,2,3,4)\n\nOpening hours: - Mon 9-5\n- Tue 9-5\n']), false, 'a list run into the paragraph before it');
+  assert.equal(sameFiles(site, ['## [Hours](#xywh=1,2,3,5)\n\nOpening hours:\n- Mon 9-5\n- Tue 9-5\n']), false, 'another part');
+  assert.equal(sameFiles([{ file: 'notes.md', language: 'en', text: '' }], ['\n']), true, 'no notes, either way');
 });
 
 test('a new note has a key of its own, and nothing in it but the part it was given', () => {
@@ -113,22 +143,25 @@ const refusing = { getItem: () => { throw new Error('denied'); }, setItem: () =>
 test('changes not yet published are kept in the browser, for each site apart, with the files they began from', () => {
   const kept = storage();
   const notes = readNotes(files);
-  assert.equal(saveDraft(kept, PAGE, notes, [OWN, WELSH], 1000), true);
+  const copied = { texts: ['## [A](#xywh=1,2,3,4)\n', WELSH], at: 900 };
+  assert.equal(saveDraft(kept, PAGE, { notes, begun: [OWN, WELSH], copied }, 1000), true);
   const draft = loadDraft(kept, PAGE);
   assert.deepEqual(strip(draft.notes), strip(notes));
-  assert.deepEqual([draft.begun, draft.saved], [[OWN, WELSH], 1000]);
+  assert.deepEqual([draft.begun, draft.saved, draft.copied], [[OWN, WELSH], 1000, copied], 'and what was last copied, to watch for');
   assert.equal(loadDraft(kept, 'https://gjh.github.io/other/'), undefined, 'another site of the same owner’s keeps its own');
   clearDraft(kept, PAGE);
   assert.equal(loadDraft(kept, PAGE), undefined);
 });
 
 test('a browser that will not keep anything loses nothing but the draft, and says so', () => {
-  assert.equal(saveDraft(refusing, PAGE, readNotes(files), [OWN, WELSH], 1000), false);
+  assert.equal(saveDraft(refusing, PAGE, { notes: readNotes(files), begun: [OWN, WELSH] }, 1000), false);
   assert.equal(loadDraft(refusing, PAGE), undefined);
   assert.doesNotThrow(() => clearDraft(refusing, PAGE));
   const kept = storage();
   kept.setItem(`whatiiif notes: ${PAGE}`, '{not json');
   assert.equal(loadDraft(kept, PAGE), undefined, 'a draft that cannot be read is no draft');
-  kept.setItem(`whatiiif notes: ${PAGE}`, JSON.stringify({ notes: { items: [{ region: { x: 'a' } }, null, { title: { en: 'Kept' } }] }, begun: [], saved: 5 }));
-  assert.deepEqual(strip(loadDraft(kept, PAGE).notes), { intro: {}, items: [{ region: undefined, title: {}, text: {} }, { region: undefined, title: { en: 'Kept' }, text: {} }] }, 'what can be read of a damaged one');
+  kept.setItem(`whatiiif notes: ${PAGE}`, JSON.stringify({ notes: { items: [{ region: { x: 'a' } }, null, { title: { en: 'Kept' } }] }, begun: [], saved: 'today', copied: { texts: 'x' } }));
+  const damaged = loadDraft(kept, PAGE);
+  assert.deepEqual(strip(damaged.notes), { intro: {}, items: [{ region: undefined, title: {}, text: {} }, { region: undefined, title: { en: 'Kept' }, text: {} }] }, 'what can be read of a damaged one');
+  assert.deepEqual([damaged.saved, damaged.copied], [undefined, undefined], 'no time, rather than an invalid one');
 });

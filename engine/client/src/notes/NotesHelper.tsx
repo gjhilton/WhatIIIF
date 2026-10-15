@@ -8,7 +8,24 @@ import type { Region } from '../address';
 import { htmlLang } from '../language';
 import type { Site } from '../site';
 import { openPicture, type Picture } from './picture';
-import { clearDraft, languageName, loadDraft, newNote, problemsOf, readNotes, saveDraft, sameFiles, writeNotes, type Note, type NotesFile, type Problem, type Written } from './draft';
+import {
+  clearDraft,
+  draftContent,
+  draftKey,
+  languageName,
+  loadDraft,
+  newNote,
+  problemsOf,
+  readNotes,
+  saveDraft,
+  sameFiles,
+  writeNotes,
+  type Copied,
+  type Note,
+  type NotesFile,
+  type Problem,
+  type Written,
+} from './draft';
 
 /** The notes files as the build left them for the helper, in settings.json, the site's own first. */
 export interface NotesSource extends NotesFile {
@@ -49,9 +66,12 @@ function startingNotes(storage: Storage | undefined, files: NotesFile[], pageUrl
   const texts = files.map(({ text }) => text);
   const draft = storage && loadDraft(storage, pageUrl);
   if (!draft || writeNotes(draft.notes, files, pageUrl).every(({ changed }) => !changed)) return { notes: readNotes(files), begun: texts };
+  // The site has what was last copied from here (and these are later changes): they now begin from it.
+  const arrived = draft.copied !== undefined && sameFiles(files, draft.copied.texts);
+  const begun = arrived ? texts : draft.begun;
   // Stale: the site's notes have changed since these changes began, on GitHub perhaps, and these would undo that.
-  const stale = draft.begun.length !== texts.length || draft.begun.some((text, i) => text !== texts[i]);
-  return { notes: draft.notes, begun: draft.begun, restored: { saved: draft.saved, stale } };
+  const stale = begun.length !== texts.length || begun.some((text, i) => text !== texts[i]);
+  return { notes: draft.notes, begun, copied: arrived ? undefined : draft.copied, restored: { saved: draft.saved, stale } };
 }
 
 export function NotesHelper({ site, source, links: built }: { site: Site; source?: NotesSource; links: Links }) {
@@ -63,32 +83,63 @@ export function NotesHelper({ site, source, links: built }: { site: Site; source
   const [notes, setNotes] = useState(start.notes);
   const [begun, setBegun] = useState(start.begun); // the files these changes began from
   const [restored, setRestored] = useState(start.restored);
+  // The files last copied or downloaded to put on the site, watched for until it has them, even after a reload.
+  const [copiedFiles, setCopiedFiles] = useState<Copied | undefined>(start.copied);
+  const [late, setLate] = useState(false);
+  const [arrived, setArrived] = useState(false);
   const [selected, setSelected] = useState<number | 'intro'>(); // the open note's key, or the introduction
   const [fresh, setFresh] = useState<number>(); // a note just added, whose problems wait until it is closed
   const [drawing, setDrawing] = useState<number | 'new'>(); // the note whose part is being drawn
   const [removed, setRemoved] = useState<{ note: Note; at: number }>();
   const [kept, setKept] = useState(true); // whether the browser keeps the changes
   const [copied, setCopied] = useState<boolean>(); // false: the browser would not copy
-  const [watch, setWatch] = useState<{ expecting: string[]; since: number; late?: boolean; arrived?: boolean }>();
   const { items } = notes;
   const lang = (language: string) => htmlLang(language);
 
-  const written = writeNotes(notes, files, site.pageUrl);
+  const written = useMemo(() => writeNotes(notes, files, site.pageUrl), [notes, files, site.pageUrl]);
   const changed = written.filter((file) => file.changed);
-  const problems = problemsOf(notes, files, site);
+  const problems = useMemo(() => problemsOf(notes, files, site, written), [notes, files, site, written]);
 
-  // Changes are kept in the browser as they are made, and forgotten once the site has them.
+  // Changes are kept in the browser as they are made, and forgotten once the site has them; kept again only when
+  // they change, so the time kept is when they were made.
+  const lastKept = useRef(start.restored && draftContent({ notes: start.notes, begun: start.begun, copied: start.copied }));
   const save = () => {
     if (!storage) return setKept(false);
-    if (changed.length === 0) clearDraft(storage, site.pageUrl);
-    else setKept(saveDraft(storage, site.pageUrl, notes, begun));
+    if (changed.length === 0) {
+      clearDraft(storage, site.pageUrl);
+      lastKept.current = undefined;
+      return;
+    }
+    const draft = { notes, begun, copied: copiedFiles };
+    if (draftContent(draft) === lastKept.current) return;
+    lastKept.current = draftContent(draft);
+    setKept(saveDraft(storage, site.pageUrl, draft));
   };
   const saveSoon = useRef(save);
   saveSoon.current = save;
   useEffect(() => {
     const timer = setTimeout(() => saveSoon.current(), 300);
     return () => clearTimeout(timer);
-  }, [notes, files, begun]);
+  }, [notes, files, begun, copiedFiles]);
+  // Changes kept by the helper open in another tab are followed here, so neither keeps its own over the other's.
+  const filesNow = useRef(files);
+  filesNow.current = files;
+  useEffect(() => {
+    if (!storage) return;
+    const follow = (event: StorageEvent) => {
+      if (event.key !== draftKey(site.pageUrl)) return;
+      const draft = loadDraft(storage, site.pageUrl);
+      const at = current.current.findIndex((note) => note.key === selectedNow.current);
+      const now = draft?.notes ?? readNotes(filesNow.current);
+      lastKept.current = draft && draftContent(draft);
+      setNotes(now);
+      setBegun(draft?.begun ?? filesNow.current.map(({ text }) => text));
+      setCopiedFiles(draft?.copied);
+      setSelected(now.items[at]?.key); // the same note stays open
+    };
+    addEventListener('storage', follow);
+    return () => removeEventListener('storage', follow);
+  }, [storage, site.pageUrl]);
   // A browser that will not keep them warns before they are lost.
   const unsaved = !kept && changed.length > 0;
   useEffect(() => {
@@ -106,6 +157,8 @@ export function NotesHelper({ site, source, links: built }: { site: Site; source
   const picture = useRef<Picture>(undefined);
   const current = useRef(items);
   current.current = items;
+  const selectedNow = useRef(selected);
+  selectedNow.current = selected;
   const [reveal, setReveal] = useState<string>(); // the id of a line in the list to scroll to, as a note is chosen elsewhere
   useEffect(() => {
     picture.current = openPicture(host.current!, site, {
@@ -135,6 +188,10 @@ export function NotesHelper({ site, source, links: built }: { site: Site; source
     row?.querySelector<HTMLElement>('.note-row-button')?.focus({ preventScroll: true });
     setReveal(undefined);
   }, [reveal]);
+  // A just-added note's mistakes wait only until another note is opened, however it is opened.
+  useEffect(() => {
+    if (fresh !== undefined && selected !== fresh) setFresh(undefined);
+  }, [selected, fresh]);
   // A note just added has its title typed next.
   const [added, setAdded] = useState<number>();
   useEffect(() => {
@@ -150,27 +207,38 @@ export function NotesHelper({ site, source, links: built }: { site: Site; source
 
   // Once the notes are copied, the site is watched until it has them.
   useEffect(() => {
-    if (!watch || watch.arrived) return;
+    if (!copiedFiles) return;
+    let watching = true; // a look still under way when a newer copy is made is not taken for news of it
     const look = async () => {
       const latest = await fetch(`./settings.json?${Date.now()}`, { cache: 'no-store' })
         .then((response) => (response.ok ? response.json() : undefined))
         .catch(() => undefined);
+      if (!watching) return;
       const now: NotesFile[] | undefined = latest && filesOf(latest.notes, site.language);
-      if (now && sameFiles(now, watch.expecting)) {
+      if (now && sameFiles(now, copiedFiles.texts)) {
         setFiles(now);
         setBegun(now.map(({ text }) => text));
         setLinks({ notesUrl: latest.notesUrl, uploadUrl: latest.uploadUrl, actionsUrl: latest.actionsUrl });
         setRestored(undefined);
-        setWatch({ ...watch, arrived: true });
-      } else if (!watch.late && Date.now() - watch.since > LATE) {
-        setWatch({ ...watch, late: true });
+        setCopiedFiles(undefined);
+        setArrived(true);
+      } else {
+        setLate(Date.now() - copiedFiles.at > LATE);
       }
     };
+    look();
     const timer = setInterval(look, WATCH_EVERY);
-    return () => clearInterval(timer);
-  }, [watch, site.language]);
+    return () => {
+      watching = false;
+      clearInterval(timer);
+    };
+  }, [copiedFiles, site.language]);
   /** Watches for the site to have `published`, the files copied or downloaded, and the rest as they are. */
-  const watchFor = (published: Written[]) => setWatch({ expecting: written.map((file) => published.find(({ file: name }) => name === file.file)?.text ?? file.text), since: Date.now() });
+  const watchFor = (published: Written[]) => {
+    setCopiedFiles({ texts: written.map((file) => published.find(({ file: name }) => name === file.file)?.text ?? file.text), at: Date.now() });
+    setLate(false);
+    setArrived(false);
+  };
 
   const change = (key: number, fields: Partial<Note>) => setNotes((now) => ({ ...now, items: now.items.map((note) => (note.key === key ? { ...note, ...fields } : note)) }));
   const words = (key: number, field: 'title' | 'text', language: string, value: string) =>
@@ -180,7 +248,6 @@ export function NotesHelper({ site, source, links: built }: { site: Site; source
    * is above the notes, scrolling up to it when asked to show it there.
    */
   const choose = (key: number | 'intro' | undefined, { show = false, scroll = false } = {}) => {
-    if (key !== fresh) setFresh(undefined);
     setSelected(key);
     const note = items.find((item) => item.key === key);
     if (show && note?.region) {
@@ -218,6 +285,7 @@ export function NotesHelper({ site, source, links: built }: { site: Site; source
     if (!confirm('Forget the changes you made, and start again from the notes your site has?')) return;
     setNotes(readNotes(files));
     setBegun(files.map(({ text }) => text));
+    setCopiedFiles(undefined);
     setRestored(undefined);
     setSelected(undefined);
     setRemoved(undefined);
@@ -251,14 +319,13 @@ export function NotesHelper({ site, source, links: built }: { site: Site; source
       },
       () => setCopied(false),
     );
-  const download = () => {
-    for (const file of changed) {
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(new Blob([file.text], { type: 'text/markdown' }));
-      link.download = file.file;
-      link.click();
-      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-    }
+  // One file for each press: a browser asks before letting one press download several, and the owner may say no.
+  const download = (file: Written) => {
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(new Blob([file.text], { type: 'text/markdown' }));
+    link.download = file.file;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
     watchFor(changed);
   };
 
@@ -446,7 +513,8 @@ export function NotesHelper({ site, source, links: built }: { site: Site; source
             existing={own.text.trim() !== ''}
             links={links}
             copied={copied}
-            watch={watch}
+            watch={copiedFiles ? { late } : arrived ? { arrived } : undefined}
+            told={problems.filter(({ key }) => key === undefined || key !== fresh)}
             onCopy={copy}
             onDownload={download}
             onGoTo={(key) => {
@@ -526,7 +594,7 @@ function Status({
 }: {
   count: number;
   changed: boolean;
-  restored?: { saved: number; stale: boolean };
+  restored?: { saved?: number; stale: boolean };
   kept: boolean;
   /** Whether there is anything to show on the site's page: a note with a part of the picture. */
   previewable: boolean;
@@ -538,7 +606,7 @@ function Status({
     <div className="notes-status">
       {restored && (
         <p>
-          These are the changes you made in this browser on {when(restored.saved)}, not yet on your site.{' '}
+          These are the changes you made in this browser {restored.saved === undefined ? 'earlier' : `on ${when(restored.saved)}`}, not yet on your site.{' '}
           {restored.stale && <b>Your site’s notes have changed since then, perhaps on GitHub: putting these on your site would undo that. </b>}
           <button type="button" className="quiet" onClick={onStartAgain}>Start again from your site’s notes</button>
         </p>
@@ -561,11 +629,19 @@ function Status({
   );
 }
 
+/** A page on GitHub, in a tab of its own, so this page goes on watching for the site to have the notes. */
+const GitHub = ({ href, children }: { href: string; children: ReactNode }) => (
+  <a href={href} target="_blank" rel="noopener">
+    {children}
+  </a>
+);
+
 /** How to put the notes on the site: what stops them, else the steps on GitHub; then the site watched for them. */
 function Publish({
   written,
   changed,
   problems,
+  told,
   existing,
   links,
   copied,
@@ -577,12 +653,14 @@ function Publish({
   written: Written[];
   changed: Written[];
   problems: Problem[];
+  /** The problems to tell a screen reader of as they come and go: all but a just-added note's. */
+  told: Problem[];
   existing: boolean;
   links: Links;
   copied?: boolean;
   watch?: { late?: boolean; arrived?: boolean };
   onCopy: (file: Written) => void;
-  onDownload: () => void;
+  onDownload: (file: Written) => void;
   onGoTo: (key: number | 'intro') => void;
 }) {
   const names = (files: Written[]) => files.map(({ file }) => file).join(' and ');
@@ -616,6 +694,7 @@ function Publish({
   } else if (changed.length === 1) {
     const [file] = changed;
     const make = !existing && file === written[0];
+    const url = file === written[0] ? links.notesUrl : file.url;
     steps = (
       <ol className="steps">
         <li>
@@ -624,17 +703,11 @@ function Publish({
         </li>
         <li>
           {make ? (
-            <>
-              {links.notesUrl ? <a href={links.notesUrl}>Make content/notes.md on GitHub</a> : <>Make <code>content/notes.md</code> on GitHub</>}, and paste it in.
-            </>
+            <>{url ? <GitHub href={url}>Make content/notes.md on GitHub</GitHub> : <>Make <code>content/notes.md</code> on GitHub</>}, and paste it in.</>
           ) : (
             <>
-              {(file === written[0] ? links.notesUrl : file.url) ? (
-                <a href={file === written[0] ? links.notesUrl : file.url}>Open {file.file} on GitHub</a>
-              ) : (
-                <>Open <code>content/{file.file}</code> on GitHub</>
-              )}
-              , select everything in it, and paste over it.
+              {url ? <GitHub href={url}>Open {file.file} on GitHub</GitHub> : <>Open <code>content/{file.file}</code> on GitHub</>}, select everything in it, and
+              paste over it.
             </>
           )}
         </li>
@@ -645,26 +718,35 @@ function Publish({
     steps = (
       <ol className="steps">
         <li>
-          <button type="button" onClick={onDownload}>Download {names(changed)}</button>
+          Download each file:{' '}
+          <span className="note-buttons">
+            {changed.map((file) => (
+              <button type="button" key={file.file} onClick={() => onDownload(file)}>Download {file.file}</button>
+            ))}
+          </span>
         </li>
         <li>
-          {links.uploadUrl ? <a href={links.uploadUrl}>Upload them to your content folder on GitHub</a> : <>Upload them to <code>content</code> on GitHub</>}: drop
-          the files there, and they take the place of those it has.
+          {links.uploadUrl ? <GitHub href={links.uploadUrl}>Upload them to your content folder on GitHub</GitHub> : <>Upload them to <code>content</code> on GitHub</>}
+          : drop the files there, and they take the place of those it has. A browser can add a number to a file’s name when it has one of that name already,
+          as in notes (1).md: name them {names(changed)} again before you drop them.
         </li>
         {rebuilt}
       </ol>
     );
   }
+  const actions = links.actionsUrl ? <GitHub href={links.actionsUrl}>the Actions tab</GitHub> : 'the Actions tab';
   return (
     <section className="notes-section notes-publish" aria-labelledby="publish-heading">
       <h2 id="publish-heading">Put them on your site</h2>
       {steps}
+      <p className="visually-hidden" role="status">
+        {told.length > 0 ? `${told[0].message}${told.length > 1 ? ` And ${told.length - 1} more to fix.` : ''}` : ''}
+      </p>
       {watch && !watch.arrived && changed.length > 0 && (
         <p className="hint" role="status">
           {watch.late ? (
             <>
-              Your site does not have them yet. If its build stopped, {links.actionsUrl ? <a href={links.actionsUrl}>the Actions tab</a> : 'the Actions tab'} says
-              why.
+              Your site does not have them yet. If its build stopped, {actions} says why{changed.length > 1 ? `; check that ${names(changed)} were all uploaded, under those names` : ''}.
             </>
           ) : (
             'Watching for your site to have them…'

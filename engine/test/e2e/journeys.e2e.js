@@ -866,6 +866,14 @@ suite('a museum adds notes to its picture, which make a tour', () => {
     assert.deepEqual([moved.w, moved.h], [grown.w, grown.h], 'moving keeps its size');
     assert.equal(await note(2).getAttribute('aria-expanded'), 'true', 'a drag of the number is not a press of it');
 
+    // A tap on another note's number that wanders a little opens that note, and moves nothing.
+    const gull = (await written()).items[2].region;
+    await page.getByRole('button', { name: 'Show the whole picture' }).click();
+    const number = await settled(page.locator('.note-area').nth(2).locator('.note-marker'));
+    await drag(page, middle(number), { x: 6, y: 3 });
+    assert.equal(await note(3).getAttribute('aria-expanded'), 'true');
+    assert.deepEqual((await written()).items[2].region, gull);
+
     // A new note for the part in view, its title typed straight away.
     await page.getByRole('button', { name: 'Add a note for the part in view' }).click();
     await page.keyboard.type('The harbour');
@@ -921,9 +929,13 @@ suite('a museum adds notes to its picture, which make a tour', () => {
     await note(1).click();
     await page.getByRole('textbox', { name: 'Title', exact: true }).fill('The lighthouse at dusk');
     await page.waitForTimeout(500); // kept a moment after the change
+    const kept = () => page.evaluate(() => JSON.parse(localStorage.getItem('whatiiif notes: https://example.github.io/my-image/')).saved);
+    const made = await kept();
     await page.reload();
     await page.getByText(/^These are the changes you made in this browser on /).waitFor();
     assert.equal((await written()).items[0].title, 'The lighthouse at dusk', 'a reload loses nothing');
+    await page.waitForTimeout(500);
+    assert.equal(await kept(), made, 'still kept as made when they were made, not when they were last looked at');
 
     // The preview: the site's own page, with these notes and their tour.
     const [preview] = await Promise.all([page.context().waitForEvent('page'), page.getByRole('link', { name: 'Preview them on your site' }).click()]);
@@ -938,6 +950,9 @@ suite('a museum adds notes to its picture, which make a tour', () => {
     await page.waitForTimeout(500);
     await preview.evaluate(() => dispatchEvent(new Event('focus')));
     await until(async () => (await preview.locator('.notes li h3').allTextContents()).includes('Two gulls'), 'the preview to show the change');
+
+    // Back to the helper closes the preview, rather than opening a second helper in it.
+    await Promise.all([preview.waitForEvent('close'), preview.getByRole('link', { name: 'Back to the notes helper' }).click()]);
 
     page.once('dialog', (dialog) => dialog.accept());
     await page.getByRole('button', { name: 'Start again from your site’s notes' }).click();
@@ -967,6 +982,21 @@ suite('a museum adds notes to its picture, which make a tour', () => {
     await close();
   });
 
+  test('two notes helpers open on the same site follow each other’s changes, so neither keeps its own over the other’s', async () => {
+    const { page, close, note, written } = await helper();
+    await note(1).click();
+    await page.getByRole('textbox', { name: 'Title', exact: true }).fill('The lighthouse at dusk');
+    await page.waitForTimeout(500);
+    const other = await page.context().newPage();
+    await other.goto(page.url());
+    const title = other.getByRole('textbox', { name: 'Title', exact: true });
+    await other.getByRole('button', { name: /^Note 2: / }).click();
+    await title.fill('The fleet');
+    await until(async () => (await written()).items[1].title === 'The fleet', 'the first helper to follow the second');
+    assert.equal((await written()).items[0].title, 'The lighthouse at dusk');
+    await close();
+  });
+
   test('once its notes are copied, the notes helper watches for the site to have them, then forgets the changes', async () => {
     const rebuilt = join(await tempDir('rebuilt'), 'settings.json');
     let built = false;
@@ -975,6 +1005,11 @@ suite('a museum adds notes to its picture, which make a tour', () => {
     await page.getByRole('textbox', { name: 'Title', exact: true }).fill('The fleet');
     await page.getByRole('button', { name: 'Copy notes.md' }).click();
     assert.equal(await page.evaluate(() => navigator.clipboard.readText()), await file().inputValue());
+    await page.getByText('Watching for your site to have them…').waitFor();
+    const github = page.getByRole('link', { name: 'Open notes.md on GitHub' });
+    assert.deepEqual([await github.getAttribute('target'), await github.getAttribute('rel')], ['_blank', 'noopener'], 'GitHub in a tab of its own, so this one goes on watching');
+    await page.waitForTimeout(500);
+    await page.reload(); // even so, the owner may come back to it later
     await page.getByText('Watching for your site to have them…').waitFor();
 
     // The owner pastes them into notes.md on GitHub, and the site is rebuilt with them.
@@ -1008,14 +1043,14 @@ suite('a museum adds notes to its picture, which make a tour', () => {
     assert.equal(await welshTitle.inputValue(), 'Y goleudy');
     await welshTitle.fill('');
     await note(2).click();
-    await page.locator('.notes-publish').getByText('Note 1 needs a title in Welsh, for notes.cy.md.').waitFor();
+    await page.locator('.notes-publish').getByRole('button', { name: 'Note 1 needs a title in Welsh, for notes.cy.md.' }).waitFor();
     await note(1).click();
     await welshTitle.fill('Y goleudy');
 
     assert.equal(await page.getByRole('link', { name: 'Upload them to your content folder on GitHub' }).getAttribute('href'), 'https://github.com/example/my-image/upload/main/content');
     const downloads = [];
     page.on('download', (download) => downloads.push(download));
-    await page.getByRole('button', { name: 'Download notes.md and notes.cy.md' }).click();
+    for (const name of ['notes.md', 'notes.cy.md']) await page.getByRole('button', { name: `Download ${name}` }).click(); // one a press, as browsers ask before several
     await until(() => downloads.length === 2, 'both files to download');
     assert.deepEqual(downloads.map((download) => download.suggestedFilename()), ['notes.md', 'notes.cy.md']);
     assert.deepEqual(problems, []);

@@ -1,12 +1,14 @@
 // The notes helper's notes, apart from React and the picture: read from the notes files the site was built from,
 // written back to them, checked as the build will check them, and kept in the browser until they are published.
-import { combineNotes, readNotesSource, writeNotesSource } from '../../../lib/notes.js';
+import { combineNotes, parseNotes, readNotesSource, writeNotesSource } from '../../../lib/notes.js';
 import type { Region } from '../address';
+import type { Site } from '../site';
 
+const names = new Intl.DisplayNames(['en'], { type: 'language' });
 /** A language's name in English, the helper's own language, such as Welsh for cy. */
 export function languageName(language: string): string {
   try {
-    return new Intl.DisplayNames(['en'], { type: 'language' }).of(language) ?? language;
+    return names.of(language) ?? language;
   } catch {
     return language;
   }
@@ -75,13 +77,27 @@ function sourceOf(notes: Notes, language: string, own: boolean, pageUrl: string)
   return writeNotesSource({ intro: notes.intro[language] ?? '', items }, pageUrl);
 }
 
-/** Whether two notes files hold the same notes, however they are written; a translation's parts are the site's. */
+/**
+ * What visitors would see of a notes file, as the build reads it (its HTML, spaces aside, which a browser shows
+ * alike); undefined if the build would not read it. A translation's parts are the site's own, so they are left out.
+ */
+function shown(text: string, own: boolean): string | undefined {
+  const flat = (html?: string) => html?.replace(/\s+/g, ' ').trim();
+  try {
+    const { intro, items } = parseNotes(text, 'notes.md', { linked: false });
+    return JSON.stringify({ intro: flat(intro), items: items.map(({ title, region, text: html }) => ({ title, text: flat(html), ...(own && { region }) })) });
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Whether two notes files hold the same notes however they are written, judged by what the build makes of them, not
+ * by the helper's own reading, so that anything lost in reading and writing them shows as a change.
+ */
 function same(a: string, b: string, own: boolean): boolean {
-  const read = (text: string) => {
-    const { intro, items } = readNotesSource(text);
-    return JSON.stringify({ intro, items: items.map(({ title, region, text: words }) => ({ title, text: words, ...(own && { region }) })) });
-  };
-  return read(a) === read(b);
+  const [x, y] = [shown(a, own), shown(b, own)];
+  return x === undefined || y === undefined ? a.trim() === b.trim() : x === y;
 }
 
 /** Whether the site's notes `files` are the notes in `texts`, file by file, however each was written and saved. */
@@ -100,13 +116,25 @@ export function writeNotes(notes: Notes, files: NotesFile[], pageUrl: string): W
 /** Whether Markdown has a ## heading in it, which in a notes file would start a note of its own. */
 const startsNotes = (text = '') => readNotesSource(text).items.length > 0;
 
-/** What the build would refuse in the notes, in the order the owner meets it on the page. */
-export function problemsOf(notes: Notes, files: NotesFile[], site: { width: number; height: number; pageUrl: string }): Problem[] {
+/**
+ * What the build would refuse in the notes, in the order the owner meets it on the page; `written` is the files as
+ * writeNotes writes them, if they are to hand.
+ */
+export function problemsOf(
+  notes: Notes,
+  files: NotesFile[],
+  site: { width: number; height: number; pageUrl: string },
+  written = writeNotes(notes, files, site.pageUrl),
+): Problem[] {
   const [own, ...translations] = files;
   const problems: Problem[] = [];
   if (notes.items.length === 0) {
-    // A site that has notes is told how to have none; one that never had any has nothing to publish.
+    // A site that has notes is told how to have none; one that never had any has nothing to publish, unless an
+    // introduction has been written, which on its own is a notes.md the build refuses.
     if (own.text.trim()) problems.push({ message: `There are no notes. To have none, delete ${files.map(({ file }) => file).join(' and ')} instead.` });
+    else if (Object.values(notes.intro).some((text) => text.trim())) {
+      problems.push({ key: 'intro', message: 'An introduction needs notes to introduce: add a note, or leave the introduction empty.' });
+    }
     return problems;
   }
   const heading = 'a heading made with ##, which would start a note of its own: use ###';
@@ -131,7 +159,6 @@ export function problemsOf(notes: Notes, files: NotesFile[], site: { width: numb
   if (problems.length) return problems;
   // Anything else the build would say, in its own words.
   try {
-    const written = writeNotes(notes, files, site.pageUrl);
     combineNotes(Object.fromEntries(written.map(({ file, language, text }) => [language, { file, text }])), own.language);
   } catch (error) {
     problems.push({ message: (error as Error).message });
@@ -139,22 +166,53 @@ export function problemsOf(notes: Notes, files: NotesFile[], site: { width: numb
   return problems;
 }
 
-/** Changes not yet published, kept in the browser: the notes, the files they began from, and when they were kept. */
+/**
+ * The notes as the site's page shows them (see combineNotes), made by the build's own code from the files the helper
+ * would write, so the page can preview them before they are published. `language` is the site's. A note not yet
+ * given a part of the picture is left out, and one without a title is called Untitled; undefined if no note has a
+ * part to show, or the build could not read them.
+ */
+export function previewOf(notes: Notes, language: string, pageUrl: string): Site['notes'] | undefined {
+  const words = [notes.intro, ...notes.items.flatMap(({ title, text }) => [title, text])];
+  const languages = [...new Set([language, ...words.flatMap((texts) => Object.keys(texts))])];
+  const items = notes.items
+    .filter(({ region }) => region)
+    .map((note) => ({ ...note, title: Object.fromEntries(languages.map((tag) => [tag, note.title[tag]?.trim() || 'Untitled'])) }));
+  if (items.length === 0) return undefined;
+  const placed = { intro: notes.intro, items };
+  try {
+    return combineNotes(Object.fromEntries(languages.map((tag) => [tag, { file: 'notes.md', text: sourceOf(placed, tag, tag === language, pageUrl) }])), language);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Changes not yet published, kept in the browser: the notes, the texts of the files they began from, when they were
+ * kept, and the files last copied or downloaded to put on the site, and when, to watch for the site to have them.
+ */
 export interface Draft {
   notes: Notes;
   begun: string[];
-  saved: number;
+  saved?: number;
+  copied?: Copied;
+}
+
+export interface Copied {
+  texts: string[];
+  at: number;
 }
 
 // One draft for each site: an owner's sites share their browser storage, at OWNER.github.io.
-const draftKey = (pageUrl: string) => `whatiiif notes: ${pageUrl}`;
+export const draftKey = (pageUrl: string) => `whatiiif notes: ${pageUrl}`;
 
-/**
- * Keeps `notes` for the site at `pageUrl`, with `begun`, the texts of the files they began from; false if the browser
- * will not keep them (in a private window, say).
- */
-export function saveDraft(storage: Pick<Storage, 'setItem'>, pageUrl: string, notes: Notes, begun: string[], now = Date.now()): boolean {
-  const kept = { notes: { intro: notes.intro, items: notes.items.map(({ key, ...note }) => note) }, begun, saved: now };
+/** A draft as kept, apart from when: two the same need not be kept again. */
+export const draftContent = ({ notes, begun, copied }: Omit<Draft, 'saved'>) =>
+  JSON.stringify({ notes: { intro: notes.intro, items: notes.items.map(({ key, ...note }) => note) }, begun, copied });
+
+/** Keeps a draft for the site at `pageUrl`, as kept `now`; false if the browser will not keep it (in a private window, say). */
+export function saveDraft(storage: Pick<Storage, 'setItem'>, pageUrl: string, { notes, begun, copied }: Omit<Draft, 'saved'>, now = Date.now()): boolean {
+  const kept = { notes: { intro: notes.intro, items: notes.items.map(({ key, ...note }) => note) }, begun, saved: now, copied };
   try {
     storage.setItem(draftKey(pageUrl), JSON.stringify(kept));
     return true;
@@ -174,7 +232,10 @@ export function loadDraft(storage: Pick<Storage, 'getItem'>, pageUrl: string): D
     const items = kept.notes.items
       .filter((note: unknown) => note && typeof note === 'object')
       .map((note: Partial<Note>) => ({ key: keys++, region: part(note.region), title: words(note.title), text: words(note.text) }));
-    return { notes: { intro: words(kept.notes.intro), items }, begun: kept.begun, saved: kept.saved };
+    const time = (value: unknown) => (typeof value === 'number' && Number.isFinite(value) ? value : undefined);
+    const { texts, at } = kept.copied ?? {};
+    const copied = Array.isArray(texts) && texts.every((text) => typeof text === 'string') && time(at) !== undefined ? { texts, at } : undefined;
+    return { notes: { intro: words(kept.notes.intro), items }, begun: kept.begun, saved: time(kept.saved), copied };
   } catch {
     return undefined;
   }
