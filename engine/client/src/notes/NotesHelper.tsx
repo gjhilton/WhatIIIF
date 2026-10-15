@@ -27,7 +27,11 @@ const WATCH_EVERY = 10_000; // how often to look for the site's new notes, once 
 const LATE = 10 * 60_000; // when to say a build may have stopped
 
 const pixels = (n: number) => n.toLocaleString('en-GB');
-const describe = ({ x, y, w, h }: Region) => `${pixels(w)} × ${pixels(h)} pixels, ${pixels(x)} across and ${pixels(y)} down`;
+/** Where a note's part is, and how to change it; a part that is the whole picture is most likely a slip. */
+const describe = ({ x, y, w, h }: Region, { width, height }: Site) =>
+  x === 0 && y === 0 && w === width && h === height
+    ? 'The whole picture. To point at a part of it, zoom in and choose Use the part in view, or draw round it.'
+    : `${pixels(w)} × ${pixels(h)} pixels, ${pixels(x)} across and ${pixels(y)} down. On the picture, drag its number to move it, or a corner to change its size.`;
 const filesOf = (source: NotesSource | undefined, language: string): NotesFile[] =>
   source ? [source, ...source.translations] : [{ file: 'notes.md', language, text: '' }];
 const when = (time: number) => new Date(time).toLocaleString('en-GB', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
@@ -89,7 +93,10 @@ export function NotesHelper({ site, source, links: built }: { site: Site; source
   const unsaved = !kept && changed.length > 0;
   useEffect(() => {
     if (!unsaved) return;
-    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = ''; // as older browsers ask
+    };
     addEventListener('beforeunload', warn);
     return () => removeEventListener('beforeunload', warn);
   }, [unsaved]);
@@ -118,10 +125,12 @@ export function NotesHelper({ site, source, links: built }: { site: Site; source
   }, [site]);
   const regions = JSON.stringify(items.map(({ region }) => region));
   const index = items.findIndex((note) => note.key === selected);
+  const open = items[index] as Note | undefined;
   useEffect(() => picture.current?.mark(JSON.parse(regions), index < 0 ? undefined : index), [regions, index]);
   useEffect(() => {
     if (reveal === undefined) return;
-    const row = document.getElementById(reveal);
+    // Its line, not the note as a whole, which when open may be taller than the list's window onto it.
+    const row = document.getElementById(reveal)?.querySelector<HTMLElement>('.note-row');
     row?.scrollIntoView({ behavior: still() ? 'auto' : 'smooth', block: 'nearest' });
     row?.querySelector<HTMLElement>('.note-row-button')?.focus({ preventScroll: true });
     setReveal(undefined);
@@ -276,6 +285,14 @@ export function NotesHelper({ site, source, links: built }: { site: Site; source
               <>
                 <button type="button" onClick={() => add(inView())}>Add a note for the part in view</button>
                 <button type="button" onClick={() => draw('new')}>Draw a new note’s part</button>
+                {open && (
+                  // Under the picture on a narrow screen, where the open note's own buttons are further down the page.
+                  <span className="notes-toolbar-note" role="group" aria-label={`Note ${index + 1}`}>
+                    <span>Note {index + 1}:</span>
+                    <button type="button" onClick={() => change(open.key, { region: inView() ?? open.region })}>Use the part in view</button>
+                    <button type="button" onClick={() => draw(open.key)}>{open.region ? 'Draw it again' : 'Draw it'}</button>
+                  </span>
+                )}
                 <p id="picture-hint" className="hint">
                   Zoom in on a part of the picture, then add a note for it. Choose a number on the picture to open its note.
                 </p>
@@ -297,6 +314,7 @@ export function NotesHelper({ site, source, links: built }: { site: Site; source
             changed={changed.length > 0}
             restored={restored}
             kept={kept && storage !== undefined}
+            previewable={items.some(({ region }) => region)}
             onStartAgain={startAgain}
             onPreview={save}
           />
@@ -343,7 +361,10 @@ export function NotesHelper({ site, source, links: built }: { site: Site; source
                   id={`note-${note.key}`}
                   item
                   open={selected === note.key}
-                  onToggle={() => choose(selected === note.key ? undefined : note.key, { show: selected !== note.key })}
+                  onToggle={() => {
+                    choose(selected === note.key ? undefined : note.key, { show: selected !== note.key });
+                    setReveal(`note-${note.key}`); // in view, as the note open above it closes
+                  }}
                   label={
                     <>
                       <span className="note-number" aria-hidden="true">{i + 1}</span>
@@ -393,7 +414,7 @@ export function NotesHelper({ site, source, links: built }: { site: Site; source
                   <div className="field">
                     <span className="field-label">Part of the picture</span>
                     <span className="hint">
-                      {note.region ? `${describe(note.region)}. On the picture, drag its number to move it, or a corner to change its size.` : 'None yet.'}
+                      {note.region ? describe(note.region, site) : 'None yet.'}
                     </span>
                     <span className="note-buttons">
                       {note.region && (
@@ -499,6 +520,7 @@ function Status({
   changed,
   restored,
   kept,
+  previewable,
   onStartAgain,
   onPreview,
 }: {
@@ -506,10 +528,12 @@ function Status({
   changed: boolean;
   restored?: { saved: number; stale: boolean };
   kept: boolean;
+  /** Whether there is anything to show on the site's page: a note with a part of the picture. */
+  previewable: boolean;
   onStartAgain: () => void;
   onPreview: () => void;
 }) {
-  const notes = count === 0 ? 'No notes yet' : count === 1 ? 'One note' : `${count} notes`;
+  const notes = count === 1 ? 'One note' : `${count} notes`;
   return (
     <div className="notes-status">
       {restored && (
@@ -520,11 +544,12 @@ function Status({
         </p>
       )}
       <p aria-live="polite">
-        {notes}
-        {changed ? (kept ? '. Changed, and not yet on your site: this browser keeps the changes until then.' : '. Changed, and not yet on your site.') : ', as on your site.'}
+        {count === 0 && !changed
+          ? 'No notes yet.'
+          : `${notes}${changed ? `. Changed, and not yet on your site${kept ? ': this browser keeps the changes until then' : ''}.` : ', as on your site.'}`}
       </p>
       {!kept && changed && <p className="problem">This browser will not keep your changes: put them on your site before you leave this page.</p>}
-      {kept && (
+      {kept && previewable && (
         <p>
           <a className="button" href="./?notes-draft" target="whatiiif-preview" onClick={onPreview}>
             Preview them on your site
@@ -609,7 +634,7 @@ function Publish({
               ) : (
                 <>Open <code>content/{file.file}</code> on GitHub</>
               )}
-              , choose the pencil to edit it, select everything in it, and paste over it.
+              , select everything in it, and paste over it.
             </>
           )}
         </li>

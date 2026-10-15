@@ -115,6 +115,7 @@ a { color: var(--ink); text-underline-offset: 0.15em; }
 .notes-picture .viewer { border-top: 0; }
 .notes-toolbar { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; padding: 0.75rem 16px; }
 .notes-toolbar .hint { flex-basis: 100%; min-height: 2lh; margin: 0; } /* the same height drawing or not: the picture keeps its size */
+.notes-toolbar-note { display: flex; flex-wrap: wrap; flex-basis: 100%; gap: 0.5rem; align-items: center; font-weight: 600; }
 .notes-panel { padding: 0 16px 3rem; }
 @media (min-width: 60rem) and (min-height: 32rem) {
   .notes-helper { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
@@ -123,6 +124,7 @@ a { color: var(--ink); text-underline-offset: 0.15em; }
   .notes-picture { display: flex; flex-direction: column; min-height: 0; border-right: 3px solid var(--ink); }
   .notes-picture .viewer { flex: 1; height: auto; min-height: 0; border-bottom-width: 1px; }
   .notes-panel { overflow-y: auto; padding-inline: 1.25rem; }
+  .notes-toolbar-note { display: none; } /* the open note's own buttons are in view beside the picture */
 }
 .note-area { border: 2px solid var(--ink); box-shadow: 0 0 0 2px var(--paper), inset 0 0 0 2px var(--paper); pointer-events: none; user-select: none; container-type: size; }
 .note-area[data-selected] { border-width: 4px; }

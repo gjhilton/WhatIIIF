@@ -129,4 +129,6 @@ test('a browser that will not keep anything loses nothing but the draft, and say
   const kept = storage();
   kept.setItem(`whatiiif notes: ${PAGE}`, '{not json');
   assert.equal(loadDraft(kept, PAGE), undefined, 'a draft that cannot be read is no draft');
+  kept.setItem(`whatiiif notes: ${PAGE}`, JSON.stringify({ notes: { items: [{ region: { x: 'a' } }, null, { title: { en: 'Kept' } }] }, begun: [], saved: 5 }));
+  assert.deepEqual(strip(loadDraft(kept, PAGE).notes), { intro: {}, items: [{ region: undefined, title: {}, text: {} }, { region: undefined, title: { en: 'Kept' }, text: {} }] }, 'what can be read of a damaged one');
 });

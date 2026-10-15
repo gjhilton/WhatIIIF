@@ -167,8 +167,14 @@ export function saveDraft(storage: Pick<Storage, 'setItem'>, pageUrl: string, no
 export function loadDraft(storage: Pick<Storage, 'getItem'>, pageUrl: string): Draft | undefined {
   try {
     const kept = JSON.parse(storage.getItem(draftKey(pageUrl)) ?? 'null');
-    if (!kept?.notes?.items || !Array.isArray(kept.begun)) return undefined;
-    return { ...kept, notes: { intro: kept.notes.intro ?? {}, items: kept.notes.items.map((note: Omit<Note, 'key'>) => ({ ...note, key: keys++ })) } };
+    if (!Array.isArray(kept?.notes?.items) || !Array.isArray(kept.begun)) return undefined;
+    // Kept by this page, but perhaps by an older one, or changed by hand: only what reads as a note is used.
+    const words = (value: unknown): Words => (value && typeof value === 'object' ? (value as Words) : {});
+    const part = (region: Region | undefined) => (region && ['x', 'y', 'w', 'h'].every((side) => Number.isInteger(region[side as keyof Region])) ? region : undefined);
+    const items = kept.notes.items
+      .filter((note: unknown) => note && typeof note === 'object')
+      .map((note: Partial<Note>) => ({ key: keys++, region: part(note.region), title: words(note.title), text: words(note.text) }));
+    return { notes: { intro: words(kept.notes.intro), items }, begun: kept.begun, saved: kept.saved };
   } catch {
     return undefined;
   }

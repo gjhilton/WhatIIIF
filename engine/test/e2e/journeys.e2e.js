@@ -802,6 +802,13 @@ suite('a museum adds notes to its picture, which make a tour', () => {
     const pane = await page.locator('.notes-picture .viewer').boundingBox();
     assert.ok(boats.width > pane.width / 2, `the picture moves to the boats, which fill most of it: ${JSON.stringify(boats)}`);
     assert.equal(await page.locator('.note-handle').count(), 4, 'the open note’s part has a corner to drag at each corner');
+    assert.equal(await page.getByRole('group', { name: 'Note 2' }).count(), 0, 'beside the picture, the note’s own buttons are enough');
+
+    // A note opened below the open one stays in view as the one above it closes.
+    await note(3).click();
+    const row = await note(3).boundingBox();
+    assert.ok(row.y >= 0 && row.y + row.height <= 900, `note 3’s line is on screen: ${JSON.stringify(row)}`);
+    await note(3).click();
 
     await page.getByRole('button', { name: 'Show the whole picture' }).click();
     await settled(page.locator('.note-area').first());
@@ -822,6 +829,7 @@ suite('a museum adds notes to its picture, which make a tour', () => {
       await page.getByRole('button', { name: 'Use the part in view for note 1' }).click();
       return near((await written()).items[0].region, [0, 0, 4000, 3000], 0);
     }, 'the whole picture to be the part of note 1');
+    await page.getByText(/^The whole picture\. To point at a part of it, zoom in/).waitFor(); // most likely a slip
 
     // Drawn round the boats, outlined on the picture as note 2's part, it is the boats.
     await page.getByRole('button', { name: 'Draw it: note 1' }).click();
@@ -865,6 +873,22 @@ suite('a museum adds notes to its picture, which make a tour', () => {
     assert.equal(items.length, 4);
     assert.equal(items[3].title, 'The harbour');
     assert.ok(items[3].region, 'the part in view');
+    assert.deepEqual(problems, []);
+    await close();
+  });
+
+  test('on a narrow screen, the open note’s part is changed from under the picture, where the note’s own buttons are out of sight', async () => {
+    const { page, problems, close, written, note } = await helper(site, { device: { viewport: { width: 600, height: 900 }, reducedMotion: 'reduce' } });
+    await note(2).click();
+    await page.getByRole('button', { name: 'Show note 2' }).click();
+    const picture = await page.locator('.notes-picture').boundingBox();
+    assert.ok(picture.y >= -1 && picture.y + picture.height <= 901, `the picture and what is under it are on screen: ${JSON.stringify(picture)}`);
+    const here = page.getByRole('group', { name: 'Note 2' });
+    await page.getByRole('button', { name: 'Show the whole picture' }).click();
+    await until(async () => {
+      await here.getByRole('button', { name: 'Use the part in view' }).click();
+      return near((await written()).items[1].region, [0, 0, 4000, 3000], 0);
+    }, 'the whole picture to be the part of note 2');
     assert.deepEqual(problems, []);
     await close();
   });
@@ -1007,6 +1031,8 @@ suite('a museum adds notes to its picture, which make a tour', () => {
     const { page, problems, close, written, file } = await helper(plain);
     assert.deepEqual(await written(), { intro: '', items: [] });
     await page.getByText(/^Notes point out parts of your picture\./).waitFor();
+    await page.getByText('No notes yet.', { exact: true }).waitFor();
+    assert.equal(await page.getByRole('link', { name: 'Preview them on your site' }).count(), 0, 'nothing to preview yet');
     await page.getByRole('button', { name: 'Add a note for the part in view' }).click();
     await page.keyboard.type('The middle');
     assert.equal(await page.getByRole('link', { name: 'Make content/notes.md on GitHub' }).getAttribute('href'), 'https://github.com/example/my-image/new/main?filename=content/notes.md');
