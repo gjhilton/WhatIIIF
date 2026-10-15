@@ -41,7 +41,7 @@ jobs:
         run: |
           npm run typecheck
           npm test
-          npx playwright install --with-deps chromium-headless-shell
+          npx playwright install --with-deps chromium-headless-shell webkit
           npm run test:e2e
       - name: Offer them as a pull request
         if: steps.update.outputs.changed == 'true'

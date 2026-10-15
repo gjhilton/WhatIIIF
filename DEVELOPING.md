@@ -54,8 +54,8 @@ npm run build        # page and site from content/ into dist/; put an image in c
 npm run preview      # http://localhost:4173
 npm test             # unit and integration tests, about ten seconds
 npm run typecheck
-npx playwright install chromium-headless-shell   # once
-npm run test:e2e     # whole journeys in a real browser, about a minute
+npx playwright install chromium-headless-shell webkit   # once
+npm run test:e2e     # whole journeys in real browsers, about two minutes
 npm run test:visual  # the page against reviewed screenshots
 ```
 
@@ -65,7 +65,9 @@ npm run test:visual  # the page against reviewed screenshots
   workflows' scripts in `engine/ci/`, run against a stand-in for GitHub's `gh`.
 - `e2e/`: repositories made from the template, with images committed the way people commit them: uploaded on
   github.com, through Git LFS, in two languages, and with mistakes. Each runs what the Deploy workflow runs and opens
-  the site in both viewers, failing if either asks for a file that was not published. `check-site.js` checks any
+  the site in both viewers, failing if either asks for a file that was not published. They run in Chromium;
+  `safari.e2e.js` repeats the journeys most likely to differ in WebKit, on a Mac and on an iPhone, and
+  `accessibility.e2e.js` checks every state of the page against WCAG 2.1 AA with axe. `check-site.js` checks any
   built or live site the same way.
 - `visual/`: the page, in each state a visitor can meet, against reviewed screenshots in
   `engine/test/visual/screenshots` (one set per operating system, since fonts differ; CI checks the Linux set). After
