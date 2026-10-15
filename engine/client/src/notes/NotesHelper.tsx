@@ -3,7 +3,7 @@
 // by the view on screen, by drawing round it, or by dragging its outline. Changes are kept in the browser until
 // they are on the site, and can be previewed on the site's own page. The helper cannot change the site itself: the
 // owner pastes what it writes into the file on GitHub, and it watches for the site to have them.
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import type { Region } from '../address';
 import { htmlLang } from '../language';
 import type { Site } from '../site';
@@ -63,6 +63,10 @@ const browserStorage = (): Storage | undefined => {
   }
 };
 const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+/** Lets a key held down press a button once, not again and again. */
+const once = (event: KeyboardEvent) => {
+  if (event.repeat) event.preventDefault();
+};
 // The picture beside the notes, rather than above them, as styles.css lays them out.
 const beside = () => matchMedia('(min-width: 60rem) and (min-height: 32rem)').matches;
 
@@ -98,6 +102,7 @@ export function NotesHelper({ site, source, links: built }: { site: Site; source
   const [removed, setRemoved] = useState<{ note: Note; at: number }>();
   const [kept, setKept] = useState(true); // whether the browser keeps the changes
   const [copied, setCopied] = useState<boolean>(); // false: the browser would not copy
+  const [unopened, setUnopened] = useState<string>(); // why the picture could not be opened
   const { items } = notes;
   const lang = (language: string) => htmlLang(language);
 
@@ -158,6 +163,7 @@ export function NotesHelper({ site, source, links: built }: { site: Site; source
   const [reveal, setReveal] = useState<string>(); // the id of a line in the list to scroll to, as a note is chosen elsewhere
   useEffect(() => {
     picture.current = openPicture(host.current!, site, {
+      onError: setUnopened,
       onChoose: (i) => {
         const key = current.current[i]?.key;
         setSelected(key);
@@ -331,8 +337,9 @@ export function NotesHelper({ site, source, links: built }: { site: Site; source
     picture.current?.stopDrawing();
     setDrawing(undefined);
   };
+  // A page not served securely (over http, as on a home network) has no clipboard to write to.
   const copy = (file: Written) =>
-    navigator.clipboard.writeText(file.text).then(
+    (navigator.clipboard?.writeText(file.text) ?? Promise.reject(new Error('no clipboard'))).then(
       () => {
         setCopied(true);
         watchFor([file]);
@@ -345,7 +352,7 @@ export function NotesHelper({ site, source, links: built }: { site: Site; source
     link.href = URL.createObjectURL(new Blob([file.text], { type: 'text/markdown' }));
     link.download = file.file;
     link.click();
-    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    setTimeout(() => URL.revokeObjectURL(link.href), 60_000); // a browser may ask the owner first, and fetch it after
     watchFor(changed);
   };
 
@@ -366,6 +373,7 @@ export function NotesHelper({ site, source, links: built }: { site: Site; source
         <section className="notes-picture" aria-label="The picture">
           <div className="viewer" style={shape} aria-describedby="picture-hint">
             <div className="viewer-host" ref={host} />
+            {unopened && <p className="viewer-error" role="alert">{unopened}</p>}
           </div>
           {/* The same buttons, drawing or not, so the one pressed keeps keyboard focus, and the hint says what changed. */}
           <div className="notes-toolbar">
@@ -373,12 +381,15 @@ export function NotesHelper({ site, source, links: built }: { site: Site; source
             <button type="button" onClick={() => (drawing === undefined ? draw('new') : stopDrawing())}>
               {drawing === undefined ? 'Draw a new note’s part' : 'Stop drawing'}
             </button>
-            {open && drawing === undefined && (
-              // Under the picture on a narrow screen, where the open note's own buttons are further down the page.
+            {open && (
+              // Under the picture on a narrow screen, where the open note's own buttons are further down the page. Its
+              // Draw button, like the one above, becomes Stop drawing rather than going from under keyboard focus.
               <span className="notes-toolbar-note" role="group" aria-label={`Note ${index + 1}`}>
                 <span>Note {index + 1}:</span>
                 <button type="button" onClick={() => change(open.key, { region: inView() ?? open.region })}>Use the part in view</button>
-                <button type="button" onClick={() => draw(open.key)}>{open.region ? 'Draw it again' : 'Draw it'}</button>
+                <button type="button" onClick={() => (drawing === open.key ? stopDrawing() : draw(open.key))}>
+                  {drawing === open.key ? 'Stop drawing' : open.region ? 'Draw it again' : 'Draw it'}
+                </button>
               </span>
             )}
             <p id="picture-hint" className="hint" role="status">
@@ -393,7 +404,7 @@ export function NotesHelper({ site, source, links: built }: { site: Site; source
           <Status
             count={items.length}
             changed={changed.length > 0}
-            restored={restored}
+            restored={changed.length > 0 ? restored : undefined}
             kept={kept && storage !== undefined}
             previewable={items.some(({ region }) => region)}
             onStartAgain={startAgain}
@@ -458,8 +469,9 @@ export function NotesHelper({ site, source, links: built }: { site: Site; source
                   }
                   order={
                     <span className="note-order">
-                      <button type="button" aria-label={`Move note ${i + 1} up`} title="Move up" onClick={() => move(note.key, -1)} disabled={i === 0}>↑</button>
-                      <button type="button" aria-label={`Move note ${i + 1} down`} title="Move down" onClick={() => move(note.key, 1)} disabled={i === items.length - 1}>↓</button>
+                      {/* A key held down moves the note once, not on and back as focus turns at the top or bottom. */}
+                      <button type="button" aria-label={`Move note ${i + 1} up`} title="Move up" onClick={() => move(note.key, -1)} onKeyDown={once} disabled={i === 0}>↑</button>
+                      <button type="button" aria-label={`Move note ${i + 1} down`} title="Move down" onClick={() => move(note.key, 1)} onKeyDown={once} disabled={i === items.length - 1}>↓</button>
                     </span>
                   }
                   problems={problemsFor(note.key)}
@@ -643,7 +655,8 @@ function Status({
       {!kept && changed && <p className="problem">This browser will not keep your changes: put them on your site before you leave this page.</p>}
       {kept && previewable && (
         <p>
-          <a className="button" href="./?viewer=openseadragon&notes-draft" target="whatiiif-preview" onClick={onPreview}>
+          {/* The page afresh, not as the browser may have kept it, with the notes it had then. */}
+          <a className="button" href={`./?viewer=openseadragon&notes-draft=${Date.now()}`} target="whatiiif-preview" onClick={onPreview}>
             Preview them on your site
           </a>{' '}
           <span className="hint">Its page, with these notes and their tour, as visitors will see them.</span>

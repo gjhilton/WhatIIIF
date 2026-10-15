@@ -860,6 +860,23 @@ suite('a museum adds notes to its picture, which make a tour', () => {
     await page.keyboard.press('Escape');
     assert.equal(await page.getByRole('button', { name: 'Stop drawing' }).count(), 0);
     assert.deepEqual((await written()).items[0].region, drawn);
+    // A tap while drawing, or a press that wanders a pixel or two, draws nothing: on a picture shown small, a pixel
+    // on screen is many of the picture's, and a speck would take the place of the note's part.
+    await page.getByRole('button', { name: 'Draw it: note 1' }).click();
+    const pane = middle(await page.locator('.notes-picture .viewer').boundingBox());
+    await drag(page, pane, { x: 2, y: 1 });
+    assert.equal(await page.getByRole('button', { name: 'Stop drawing' }).count(), 1, 'still drawing');
+    await page.keyboard.press('Escape');
+    assert.deepEqual((await written()).items[0].region, drawn);
+    // The picture is not turned or mirrored by OpenSeadragon's keys: parts are marked on it as it is.
+    const shape = async () => {
+      const { width, height } = await settled(page.locator('.note-area').nth(1));
+      return width > height;
+    };
+    const wide = await shape();
+    await page.locator('.notes-picture .openseadragon-canvas').first().focus();
+    await page.keyboard.press('r');
+    assert.equal(await shape(), wide, 'not turned');
 
     // The open note's part, dragged by a corner, changes size; dragged by its number, it moves.
     await note(2).click();
@@ -916,9 +933,14 @@ suite('a museum adds notes to its picture, which make a tour', () => {
       await here.getByRole('button', { name: 'Use the part in view' }).click();
       return near((await written()).items[1].region, [0, 0, 4000, 3000], 0);
     }, 'the whole picture to be the part of note 2');
-    // A number chosen on the picture opens its note there, rather than scrolling away to the list.
-    await page.getByRole('button', { name: 'Note 3', exact: true }).click();
+    // A number chosen on the picture opens its note there, rather than scrolling away to the list, and keeps focus.
+    await page.getByRole('button', { name: 'Note 3', exact: true }).press('Enter');
     await page.getByRole('group', { name: 'Note 3' }).waitFor();
+    assert.equal(await page.evaluate(() => document.activeElement.getAttribute('aria-label')), 'Note 3');
+    // Its Draw button there becomes Stop drawing as it is pressed, keeping focus.
+    await page.getByRole('group', { name: 'Note 3' }).getByRole('button', { name: 'Draw it again' }).press('Enter');
+    assert.equal(await page.evaluate(() => document.activeElement.textContent), 'Stop drawing');
+    await page.keyboard.press('Enter');
     const still = await page.locator('.notes-picture').boundingBox();
     assert.ok(still.y >= -1 && still.y + still.height <= 901, `the picture is still on screen: ${JSON.stringify(still)}`);
     assert.deepEqual(problems, []);
@@ -939,6 +961,13 @@ suite('a museum adds notes to its picture, which make a tour', () => {
     await page.keyboard.press('Enter');
     await page.keyboard.press('Enter');
     assert.deepEqual([await titles(), await label()], [['The lighthouse', 'A gull', 'The boats'], 'Move note 1 down']);
+    // A key held down moves the note once, not on and back again as focus turns at the bottom.
+    await page.getByRole('button', { name: 'Move note 2 down' }).focus();
+    for (let i = 0; i < 4; i++) await page.keyboard.down('Enter'); // the first a press, the rest the key repeating
+    await page.keyboard.up('Enter');
+    assert.deepEqual(await titles(), ['The lighthouse', 'The boats', 'A gull']);
+    await page.getByRole('button', { name: 'Move note 3 up' }).click();
+    assert.deepEqual(await titles(), ['The lighthouse', 'A gull', 'The boats']);
     await note(1).click();
     await page.getByRole('button', { name: 'Draw it: note 1' }).click();
     const focused = () => page.evaluate(() => document.activeElement.textContent);
@@ -1033,6 +1062,15 @@ suite('a museum adds notes to its picture, which make a tour', () => {
     await page.waitForTimeout(500);
     await page.reload();
     await warning.waitFor();
+    // Changed back to what the site has, there is nothing kept to warn of.
+    await note(1).click();
+    await page.getByRole('textbox', { name: 'Title', exact: true }).fill('The lighthouse');
+    await note(2).click();
+    await page.getByRole('textbox', { name: 'Title', exact: true }).fill('The boats');
+    await note(3).click();
+    await page.getByRole('textbox', { name: 'Title', exact: true }).fill('Two gulls');
+    await page.getByText('3 notes, as on your site.').waitFor();
+    assert.equal(await warning.count(), 0);
     await close();
   });
 
@@ -1054,7 +1092,11 @@ suite('a museum adds notes to its picture, which make a tour', () => {
     const { page, close, note } = await helper();
     await note(2).click();
     await page.getByRole('textbox', { name: 'Title', exact: true }).fill('The fleet');
-    await page.getByText('See notes.md').click();
+    // A page not served securely has no clipboard: the helper says how to copy it by hand.
+    await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { value: undefined }));
+    await page.getByRole('button', { name: 'Copy notes.md' }).click();
+    await page.getByText(/Your browser would not copy it: open See notes\.md, below, and copy everything in it\./).waitFor();
+    await page.locator('summary', { hasText: 'See notes.md' }).click();
     await page.getByRole('textbox', { name: 'notes.md' }).focus();
     await page.keyboard.press('ControlOrMeta+C');
     await page.getByText('Watching for your site to have them…').waitFor();
@@ -1118,6 +1160,15 @@ suite('a museum adds notes to its picture, which make a tour', () => {
     await until(() => downloads.length === 2, 'both files to download');
     assert.deepEqual(downloads.map((download) => download.suggestedFilename()), ['notes.md', 'notes.cy.md']);
     assert.deepEqual(problems, []);
+    await close();
+  });
+
+  test('a notes helper that cannot load the site’s notes says so, rather than taking the site for one with none', async () => {
+    const { page, close } = await helper();
+    await page.route('**/settings.json*', (route) => route.fulfill({ status: 503, body: 'Unavailable' }));
+    await page.reload();
+    await page.getByText(/^This page could not load your site’s details and notes\. Reload it to try again/).waitFor();
+    assert.equal(await page.getByText('No notes yet.').count(), 0);
     await close();
   });
 

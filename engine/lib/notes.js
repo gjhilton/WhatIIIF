@@ -145,13 +145,20 @@ export const asShown = (html) =>
     .map((part) =>
       part.startsWith('<pre')
         ? part.replace(/[ \t]+\n/g, '\n')
-        : part
-            .replace(/\s+/g, ' ')
+        : // Only the spaces HTML collapses: a space that keeps two words together, say, shows as itself.
+          part
+            .replace(/[ \t\n\f\r]+/g, ' ')
             .replace(/(<(?:p|li|h[1-6]|td|th|blockquote)>) /g, '$1')
             .replace(/ (<\/(?:p|li|h[1-6]|td|th|blockquote)>)/g, '$1'),
     )
     .join('')
-    .trim();
+    .replace(/^ | $/g, '');
+
+/** Whether Markdown has a ## heading in it, which in a notes file would start a note of its own. */
+export const startsNotes = (text = '') => marked.lexer(text).some(startsNote);
+
+/** The names of the link addresses written in Markdown as [name]: https://…, as Markdown matches them. */
+export const linkNames = (text) => Object.keys(marked.lexer(text).links ?? {});
 
 /**
  * Markdown without the blank lines before and after it, but with the spaces that start its first line, which can

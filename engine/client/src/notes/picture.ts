@@ -26,6 +26,8 @@ export interface Picture {
 export interface PictureEvents {
   /** The owner pressed the number of note `index`. */
   onChoose: (index: number) => void;
+  /** Told why, if the picture cannot be opened. */
+  onError: (message: string) => void;
   /** The owner moved or resized the part of note `index` on the picture. */
   onAdjust: (index: number, region: Region) => void;
 }
@@ -34,10 +36,11 @@ type Grip = 'move' | 'nw' | 'ne' | 'se' | 'sw';
 const CORNERS: Grip[] = ['nw', 'ne', 'se', 'sw'];
 // Screen pixels a press can wander and still be a press, not a drag: a finger wanders further than a mouse.
 const SLOP = { mouse: 4, pen: 6, touch: 12 } as Record<string, number>;
+const DRAWN = 8; // screen pixels a drawn part must be across, one way or the other: less is a tap
 const MARGIN = 0.15; // of a note's part, shown round it
 
 /** Opens the picture of `site` in `el`. */
-export function openPicture(el: HTMLElement, site: Site, { onChoose, onAdjust }: PictureEvents): Picture {
+export function openPicture(el: HTMLElement, site: Site, { onChoose, onAdjust, onError }: PictureEvents): Picture {
   const viewer = OpenSeadragon({
     element: el,
     tileSources: site.infoUrl,
@@ -50,6 +53,11 @@ export function openPicture(el: HTMLElement, site: Site, { onChoose, onAdjust }:
     gestureSettingsMouse: { clickToZoom: false },
   });
   addControls(viewer);
+  viewer.addHandler('open-failed', ({ message }) => onError(`The picture could not be opened: ${message}`));
+  // Not OpenSeadragon's keys to turn (r) and mirror (f) the picture: parts are marked on it as it is.
+  viewer.addHandler('canvas-key', (event) => {
+    if (/^[rf]$/i.test(event.originalEvent.key)) event.preventDefaultAction = true;
+  });
   const image = () => viewer.world.getItemAt(0);
   let opened = false;
   let waiting: Region | undefined;
@@ -142,6 +150,8 @@ export function openPicture(el: HTMLElement, site: Site, { onChoose, onAdjust }:
   let stopped: (() => void) | undefined;
   let start: OpenSeadragon.Point | undefined;
   let end: OpenSeadragon.Point | undefined;
+  let across = 0; // how far the pointer has gone from where it was pressed, on screen
+  let pressedAt: OpenSeadragon.Point | undefined;
   const box = document.createElement('div');
   box.className = 'drawn-area';
   const boxAround = (a: OpenSeadragon.Point, b: OpenSeadragon.Point) =>
@@ -152,14 +162,17 @@ export function openPicture(el: HTMLElement, site: Site, { onChoose, onAdjust }:
   };
   // The viewer's own events, as a second tracker on its canvas would find each move already taken by the viewer's.
   viewer.addHandler('canvas-press', (event) => {
-    if (!drawn) return;
+    if (!drawn || !opened) return;
+    pressedAt = event.position;
+    across = 0;
     start = end = fromPixel(event.position);
     viewer.addOverlay({ element: box, location: boxAround(start, end) });
   });
   viewer.addHandler('canvas-drag', (event) => {
     if (!drawn) return;
     event.preventDefaultAction = true; // drawing, not moving the picture
-    if (!start) return;
+    if (!start || !pressedAt) return;
+    across = Math.max(across, Math.abs(event.position.x - pressedAt.x), Math.abs(event.position.y - pressedAt.y));
     end = fromPixel(event.position);
     viewer.updateOverlay(box, boxAround(start, end));
   });
@@ -171,8 +184,10 @@ export function openPicture(el: HTMLElement, site: Site, { onChoose, onAdjust }:
     if (!start || !end || !drawn) return;
     const [a, b] = [image().viewportToImageCoordinates(start), image().viewportToImageCoordinates(end)];
     unbox();
-    const region = within(a.x, a.y, b.x, b.y);
-    if (!region) return; // a press without a drag marks nothing: still drawing
+    // A tap, or a press that wandered a little, marks nothing: still drawing. On a big picture shown whole, a
+    // pixel on screen is many of the picture's, and a speck would take the place of the note's part.
+    const region = across >= DRAWN ? within(a.x, a.y, b.x, b.y) : undefined;
+    if (!region) return;
     const tell = drawn;
     picture.stopDrawing();
     tell(region);
@@ -196,6 +211,9 @@ export function openPicture(el: HTMLElement, site: Site, { onChoose, onAdjust }:
       else waiting = region;
     },
     mark(regions, selected) {
+      // Keyboard focus on a number stays on it as the numbers are made again.
+      const focused = marks.findIndex((mark) => mark.contains(document.activeElement));
+      const focusedNote = focused < 0 ? undefined : Number(marks[focused].dataset.note);
       unmark();
       if (!opened) {
         viewer.addOnceHandler('open', () => picture.mark(regions, selected));
@@ -205,6 +223,7 @@ export function openPicture(el: HTMLElement, site: Site, { onChoose, onAdjust }:
         if (!region) return;
         const outline = document.createElement('div');
         outline.className = 'note-area';
+        outline.dataset.note = String(i);
         const number = document.createElement('button');
         number.type = 'button';
         number.className = 'note-marker';
@@ -229,6 +248,7 @@ export function openPicture(el: HTMLElement, site: Site, { onChoose, onAdjust }:
         }
         viewer.addOverlay({ element: outline, location: area(region) });
         marks.push(outline);
+        if (i === focusedNote) number.focus({ preventScroll: true });
       });
     },
     draw(onDrawn, onStopped) {

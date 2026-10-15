@@ -11,9 +11,13 @@ import '../styles.css';
  */
 async function load(): Promise<{ site: Site; notes?: NotesSource; links: Links }> {
   const json = (file: string) =>
-    fetch(`./${file}`, { cache: 'no-store' }).then((response) => (response.ok ? response.json() : Promise.reject(new Error(`${file} answered ${response.status}`))));
-  // settings.json may be from a site built before there was a notes helper: the form then starts empty.
-  const [site, { notes, notesUrl, uploadUrl, actionsUrl }] = await Promise.all([json('site.json'), json('settings.json').catch(() => ({}))]);
+    fetch(`./${file}`, { cache: 'no-store' }).then((response) =>
+      response.ok ? response.json() : Promise.reject(Object.assign(new Error(`${file} answered ${response.status}`), { status: response.status })),
+    );
+  // A site built before there was a notes helper has no settings.json, and no notes: the form starts empty. Any other
+  // failure is not taken for no notes, which the owner might then write over their own.
+  const missing = (error: { status?: number }) => (error.status === 404 ? {} : Promise.reject(error));
+  const [site, { notes, notesUrl, uploadUrl, actionsUrl }] = await Promise.all([json('site.json'), json('settings.json').catch(missing)]);
   return { site, notes, links: { notesUrl, uploadUrl, actionsUrl } };
 }
 
@@ -66,5 +70,10 @@ load().then(
         ),
     );
   },
-  () => root.render(<p className="load-error">This page could not load the details of its picture (site.json).</p>),
+  () =>
+    root.render(
+      <p className="load-error">
+        This page could not load your site’s details and notes. Reload it to try again: any changes this browser keeps for you are kept still.
+      </p>,
+    ),
 );

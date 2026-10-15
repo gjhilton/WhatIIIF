@@ -84,6 +84,31 @@ test('whatever the build would refuse is said, note by note, so the helper can t
   assert.deepEqual(problemsOf(notes, files, site), []);
 });
 
+test('something left open in a note’s text, which would take in the notes after it, is said to be', () => {
+  const one = [{ file: 'notes.md', language: 'en', text: '## [One](#xywh=1,1,1,1)\n\n## [Two](#xywh=2,2,2,2)\n\n## [Three](#xywh=3,3,3,3)\n' }];
+  for (const opened of ['```', '~~~', '<!-- a comment', '<pre>', '<script>', '<style>']) {
+    const notes = readNotes(one);
+    notes.items[0] = { ...notes.items[0], text: { en: `Look:\n\n${opened}` } };
+    assert.deepEqual(problemsOf(notes, one, site).map(({ key, message }) => [key, message]), [
+      [notes.items[0].key, 'Note 1 has in its text something left open (a ``` or ~~~ code block, a <!-- comment, or an HTML tag such as <pre>), which would take in the notes after it: close it.'],
+    ], opened);
+  }
+});
+
+test('a link whose address went with another note is said to have lost it, rather than shown on the site as words in brackets', () => {
+  const site1 = [{ file: 'notes.md', language: 'en', text: '## [One](#xywh=1,1,1,1)\n\nSee [the survey][s].\n\n## [Two](#xywh=2,2,2,2)\n\n[s]: https://example.com/survey\n' }];
+  const notes = readNotes(site1);
+  const without = { ...notes, items: [notes.items[0]] };
+  assert.deepEqual(problemsOf(without, site1, site).map(({ key, message }) => [key, message]), [
+    [notes.items[0].key, 'Note 1’s link [s] has lost its address, written in a note now removed or changed as [s]: https://…: write that into its text again.'],
+  ]);
+});
+
+test('a change to the kind of space, such as a space that keeps two words together, is a change', () => {
+  const french = [{ file: 'notes.md', language: 'en', text: '## [Bonjour](#xywh=1,2,3,4)\n\nBonjour !\n' }];
+  assert.equal(sameFiles(french, ['## [Bonjour](#xywh=1,2,3,4)\n\nBonjour\u00A0!\n']), false);
+});
+
 test('removing every note is not how to have none: notes.md is deleted for that', () => {
   assert.deepEqual(problemsOf({ intro: { en: '', cy: '' }, items: [] }, files, site), [{ message: 'There are no notes. To have none, delete notes.md and notes.cy.md instead.' }]);
   assert.deepEqual(problemsOf({ intro: { en: '' }, items: [] }, [{ file: 'notes.md', language: 'en', text: '' }], site), [], 'a site that never had notes has nothing to fix');

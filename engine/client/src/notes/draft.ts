@@ -1,6 +1,6 @@
 // The notes helper's notes, apart from React and the picture: read from the notes files the site was built from,
 // written back to them, checked as the build will check them, and kept in the browser until they are published.
-import { asShown, combineNotes, parseNotes, readNotesSource, writeNotesSource } from '../../../lib/notes.js';
+import { asShown, combineNotes, linkNames, parseNotes, readNotesSource, startsNotes, writeNotesSource } from '../../../lib/notes.js';
 import type { Region } from '../address';
 import type { Site } from '../site';
 
@@ -91,12 +91,23 @@ function shown(text: string, own: boolean): string | undefined {
   }
 }
 
+// What the build makes of each file is remembered, as the site's files are read again at every key pressed.
+const remembered = new Map<string, string | undefined>();
+function seen(text: string, own: boolean): string | undefined {
+  const key = `${own}${text}`;
+  if (!remembered.has(key)) {
+    if (remembered.size > 100) remembered.clear();
+    remembered.set(key, shown(text, own));
+  }
+  return remembered.get(key);
+}
+
 /**
  * Whether two notes files hold the same notes however they are written, judged by what the build makes of them, not
  * by the helper's own reading, so that anything lost in reading and writing them shows as a change.
  */
 function same(a: string, b: string, own: boolean): boolean {
-  const [x, y] = [shown(a, own), shown(b, own)];
+  const [x, y] = [seen(a, own), seen(b, own)];
   return x === undefined || y === undefined ? a.trim() === b.trim() : x === y;
 }
 
@@ -113,8 +124,6 @@ export function writeNotes(notes: Notes, files: NotesFile[], pageUrl: string): W
   });
 }
 
-/** Whether Markdown has a ## heading in it, which in a notes file would start a note of its own. */
-const startsNotes = (text = '') => readNotesSource(text).items.length > 0;
 
 /**
  * What the build would refuse in the notes, in the order the owner meets it on the page; `written` is the files as
@@ -157,6 +166,8 @@ export function problemsOf(
     }
   }
   if (problems.length) return problems;
+  problems.push(...takenIn(notes, written), ...linksLost(notes, files, written));
+  if (problems.length) return problems;
   // Anything else the build would say, in its own words.
   try {
     combineNotes(Object.fromEntries(written.map(({ file, language, text }) => [language, { file, text }])), own.language);
@@ -170,6 +181,50 @@ export function problemsOf(
 export function languagesOf(notes: Notes, language: string): string[] {
   const words = [notes.intro, ...notes.items.flatMap(({ title, text }) => [title, text])];
   return [...new Set([language, ...words.flatMap((texts) => Object.keys(texts))])];
+}
+
+/**
+ * Something left open in a note's text (a code block, a comment, an HTML tag), which in the file written would take
+ * in the notes after it: their headings are then read as its text, and they are lost from the site.
+ */
+function takenIn(notes: Notes, written: Written[]): Problem[] {
+  const open = 'something left open (a ``` or ~~~ code block, a <!-- comment, or an HTML tag such as <pre>), which would take in the notes after it: close it.';
+  return written.flatMap(({ text, language }, f): Problem[] => {
+    const read = readNotesSource(text).items.length;
+    if (read >= notes.items.length) return [];
+    const where = f === 0 ? '' : ` in ${languageName(language)}`;
+    // The last note read whole is the one left open; none read, the introduction.
+    if (read === 0) return [{ key: 'intro' as const, message: `The introduction${where} has ${open}` }];
+    const which = f === 0 ? `Note ${read} has in its text` : `Note ${read}’s text${where} has`;
+    return [{ key: notes.items[read - 1].key, message: `${which} ${open}` }];
+  });
+}
+
+/** A link name, as Markdown matches it: in any case, and with its spaces as one. */
+const linkName = (name: string) => name.toLowerCase().replace(/\s+/g, ' ').trim();
+
+/**
+ * A link whose address was written in a note removed or changed, as [name]: https://…, and so lost: the link would
+ * show on the site as words in square brackets. Only names the site's files gave an address are looked for, so square
+ * brackets meant as such are left alone.
+ */
+function linksLost(notes: Notes, files: NotesFile[], written: Written[]): Problem[] {
+  return written.flatMap(({ text, language }, f): Problem[] => {
+    const now = new Set(linkNames(text));
+    const lost = linkNames(files[f].text).filter((name) => !now.has(name));
+    if (lost.length === 0) return [];
+    const uses = (words = '') => [...words.matchAll(/\[([^\]]+)\](?:\[([^\]]*)\])?/g)].map(([, label, name]) => linkName(name || label));
+    const where = f === 0 ? '' : ` in ${languageName(language)}`;
+    const said = (which: string, name: string) => `${which} link [${name}]${where} has lost its address, written in a note now removed or changed as [${name}]: https://…: write that into its text again.`;
+    const intro = uses(notes.intro[language]).filter((name) => lost.includes(name));
+    return [
+      ...intro.slice(0, 1).map((name) => ({ key: 'intro' as const, message: said('The introduction’s', name) })),
+      ...notes.items.flatMap(({ key, text: words }, i) => {
+        const name = uses(words[language]).find((used) => lost.includes(used));
+        return name ? [{ key, message: said(`Note ${i + 1}’s`, name) }] : [];
+      }),
+    ];
+  });
 }
 
 /**
