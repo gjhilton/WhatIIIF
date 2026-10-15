@@ -131,6 +131,8 @@ notes about parts of the picture. Each shows as a numbered marker on the picture
 they make a tour that visitors step through, the viewer moving to each part in turn. See them on the
 [notes demo](https://gjhilton.github.io/whatiiif-demo-notes/).
 
+![The notes demo on its tour: a lighthouse in a drawing of a harbour, numbered markers on the picture, and below it the first of five notes, with Back and Next](engine/artwork/notes-demo.png)
+
 1. On your site, zoom in on the part you want to write about, and copy **Link to this view**.
 2. In your repository, open the **content** folder and choose **Add file → Create new file**. Call it `notes.md`.
 3. Write each note as a heading that links to its part of the picture, followed by what you want to say. Anything

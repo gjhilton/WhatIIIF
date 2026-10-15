@@ -333,3 +333,13 @@ test('packages are kept up to date in the template only, and checked before they
   // packages its Update workflow looks after.
   await assert.rejects(read(join(template, '.github/dependabot.yml')));
 });
+
+test('after each change, the Live workflow publishes the template to both demos, the plain one and the one with notes', async () => {
+  const text = await workflow('live.yml');
+  assert.match(text, /^# whatiiif: template only\./);
+  for (const [repository, key] of [['DEMO_REPOSITORY', 'DEMO_DEPLOY_KEY'], ['NOTES_DEMO_REPOSITORY', 'NOTES_DEMO_DEPLOY_KEY']]) {
+    assert.match(text, new RegExp(`- \\{ repository: ${repository}, key: ${key} \\}`), repository);
+  }
+  assert.match(text, /vars\[matrix\.demo\.repository\]/);
+  assert.match(text, /secrets\[matrix\.demo\.key\]/);
+});

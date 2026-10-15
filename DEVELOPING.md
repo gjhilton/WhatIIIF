@@ -96,11 +96,12 @@ over HTTP. It runs only in the template itself, not in copies made from it.
 The tests above run what the workflows run, but not the workflows themselves, GitHub Pages or Git LFS on GitHub.
 Two checks cover those:
 
-- **Live** (`.github/workflows/live.yml`), after every change to `main`: pushes the template to the demo repository
-  named by the `DEMO_REPOSITORY` variable, keeping its `content/` and with its workflows calling this commit's steps
-  rather than `v0`'s, waits for the demo's own Deploy workflow and runs
-  `check-site.js` on the live site (`engine/test/live/deploy-demo.sh`). It pushes with a deploy key for the demo
-  only, stored as the `DEMO_DEPLOY_KEY` secret. Copies of the template have no `DEMO_REPOSITORY` and skip it.
+- **Live** (`.github/workflows/live.yml`), after every change to `main`: pushes the template to each demo repository,
+  named by the `DEMO_REPOSITORY` variable (the plain demo) and `NOTES_DEMO_REPOSITORY` (the one with notes and a
+  tour), keeping its `content/` and with its workflows calling this commit's steps rather than `v0`'s, waits for the
+  demo's own Deploy workflow and runs `check-site.js` on the live site (`engine/test/live/deploy-demo.sh`). It pushes
+  with a deploy key for each demo alone, stored as the `DEMO_DEPLOY_KEY` and `NOTES_DEMO_DEPLOY_KEY` secrets. Copies
+  of the template have no `DEMO_REPOSITORY` and skip it.
 - **`npm run test:live`**, by hand, about ten minutes. Each file makes its own public repository with "Use this
   template" (`engine/test/live/trial.js`), using your `gh` login, with its workflows calling the steps at the
   commit tried (so push it first), and deletes it afterwards if `gh` may

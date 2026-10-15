@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 // The screenshots in the README: the demo's picture, published by this working tree's template, in light and dark,
-// and the settings helper part-way through being filled in. Run after a change to how the page looks:
+// the settings helper part-way through being filled in, and the notes demo on its tour. Run after a change to how
+// the page looks:
 //
 //   node engine/test/support/readme-screenshots.js
 //
-// It downloads the demo's picture, builds the site as the Deploy workflow would, and writes PNGs to engine/artwork.
+// It downloads the demos' content, builds the sites as the Deploy workflow would, and writes PNGs to engine/artwork.
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { chromium } from 'playwright';
@@ -13,19 +14,25 @@ import { browse, commit, deploy, repo, templateCopy } from './harness.js';
 
 const DEMO = 'gjhilton/whatiiif-demo';
 const PICTURE = 'Concentric circles.png';
-const SITE = 'https://gjhilton.github.io/whatiiif-demo';
 const out = (name) => join(repo, 'engine/artwork', name);
 
-const copy = await templateCopy();
-const response = await fetch(`https://raw.githubusercontent.com/${DEMO}/main/content/${encodeURIComponent(PICTURE)}`);
-if (!response.ok) throw new Error(`The demo's picture could not be downloaded: ${response.status}`);
-await writeFile(join(copy, 'content', PICTURE), Buffer.from(await response.arrayBuffer()));
-await commit(copy, 'The demo picture');
-const site = await deploy(copy, { baseUrl: SITE, repository: DEMO });
-if (!site.built) throw new Error(site.log);
+/** A site built by this working tree from the `files` in `demo`'s content/, at its address on GitHub Pages. */
+async function demoSite(demo, files) {
+  const copy = await templateCopy();
+  for (const file of files) {
+    const response = await fetch(`https://raw.githubusercontent.com/${demo}/main/content/${encodeURIComponent(file)}`);
+    if (!response.ok) throw new Error(`${demo}'s ${file} could not be downloaded: ${response.status}`);
+    await writeFile(join(copy, 'content', file), Buffer.from(await response.arrayBuffer()));
+  }
+  await commit(copy, 'The demo');
+  const built = await deploy(copy, { baseUrl: `https://gjhilton.github.io/${demo.split('/')[1]}`, repository: demo });
+  if (!built.built) throw new Error(built.log);
+  return built;
+}
+let site = await demoSite(DEMO, [PICTURE]);
 
 const browser = await chromium.launch();
-/** A screenshot of `query` on the site, settled, as a small PNG; `act` does anything to the page first. */
+/** A screenshot of `query` on `site`, settled, as a small PNG; `act` does anything to the page first. */
 async function shoot(name, { query = '', colorScheme = 'light', size = { width: 1280, height: 860 }, fullPage = false, act } = {}) {
   const { page, close } = await browse(browser, { siteUrl: site.baseUrl, query, colorScheme, fileFor: (path) => join(site.dist, path) });
   await page.setViewportSize(size);
@@ -48,5 +55,15 @@ await shoot('settings.png', {
     await page.evaluate(() => document.activeElement.blur()); // no focus ring in the picture
   },
 });
+site = await demoSite('gjhilton/whatiiif-demo-notes', ['A harbour.png', 'whatiiif.toml', 'description.md', 'notes.md']);
+await shoot('notes-demo.png', {
+  query: '?viewer=openseadragon',
+  size: { width: 1280, height: 1000 },
+  act: async (page) => {
+    await page.getByRole('button', { name: 'Take the tour' }).click();
+    await page.waitForTimeout(4500); // the viewer moves to the lighthouse, and its outline fades
+    await page.evaluate(() => scrollTo(0, 0)); // the title in the picture too, above the tour
+  },
+});
 await browser.close();
-console.log('Written: engine/artwork/demo.png, demo-dark.png and settings.png');
+console.log('Written: engine/artwork/demo.png, demo-dark.png, settings.png and notes-demo.png');
