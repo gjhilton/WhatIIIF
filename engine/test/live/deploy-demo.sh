@@ -26,7 +26,7 @@ if git -C "$work" diff --cached --quiet; then
   echo "$demo already holds this template."
 else
   deploys=$(git -C "$work" diff --cached --name-only -- engine package.json package-lock.json .github/workflows/deploy.yml)
-  git -C "$work" -c user.name="whatiiif live test" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+  git -C "$work" -c user.name="WhatIIIF live test" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
     commit -q -m "Template at $sha"
   git -C "$work" "${nolfs[@]}" push -q origin HEAD
   pushed=$(git -C "$work" rev-parse HEAD)

@@ -34,7 +34,7 @@ export async function poll(condition, what, timeout) {
 }
 
 // Git with an identity, pushing as the gh login over HTTPS. Git LFS only where a step asks for it.
-const AS_ME = ['-c', 'user.name=whatiiif live test', '-c', 'user.email=41898282+github-actions[bot]@users.noreply.github.com',
+const AS_ME = ['-c', 'user.name=WhatIIIF live test', '-c', 'user.email=41898282+github-actions[bot]@users.noreply.github.com',
   '-c', 'commit.gpgsign=false', '-c', 'credential.helper=', '-c', 'credential.helper=!gh auth git-credential'];
 const NO_LFS = ['-c', 'filter.lfs.clean=', '-c', 'filter.lfs.smudge=', '-c', 'filter.lfs.process=', '-c', 'filter.lfs.required=false'];
 export const git = (cwd, args, { lfs = false } = {}) =>
@@ -65,7 +65,7 @@ export async function trialRepository(ref = 'HEAD') {
   const name = `whatiiif-trial-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   const repository = `${owner}/${name}`;
   const upstream = (await readFile(join(template, 'engine/UPSTREAM'), 'utf8')).trim();
-  await gh('repo', 'create', repository, '--template', upstream, '--public', '--description', 'A short-lived test of whatiiif; deleted when the test ends');
+  await gh('repo', 'create', repository, '--template', upstream, '--public', '--description', 'A short-lived test of WhatIIIF; deleted when the test ends');
   // GitHub copies the template a moment after saying the repository exists.
   await poll(async () => (await run('gh', ['api', `repos/${repository}/contents/engine/VERSION`])).code === 0, 'the template to be copied', 2 * MINUTE);
 

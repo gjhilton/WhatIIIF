@@ -1,4 +1,4 @@
-# Builds the site from content/ and publishes it to GitHub Pages. The steps are kept in the whatiiif repository
+# Builds the site from content/ and publishes it to GitHub Pages. The steps are kept in the WhatIIIF repository
 # (publish.yml there) and improve without this file changing; this file says only when to run them.
 name: Deploy
 
@@ -21,5 +21,5 @@ concurrency:
 
 jobs:
   publish:
-    uses: gjhilton/whatiiif/.github/workflows/publish.yml@v0
+    uses: gjhilton/WhatIIIF/.github/workflows/publish.yml@v0
     secrets: inherit

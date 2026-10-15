@@ -1,4 +1,4 @@
-# ![whatiiif](engine/artwork/whatiffflogo.png)
+# ![WhatIIIF](engine/artwork/whatiffflogo.png)
 
 **See the demo: [gjhilton.github.io/whatiiif-demo](https://gjhilton.github.io/whatiiif-demo/)**
 
@@ -105,7 +105,7 @@ Click **Commit changes** and the site rebuilds itself. For a longer description,
   ink = "#222222"   # text, lines, and the button that is selected
   ```
 
-- Every setting is explained in [the template's own copy of the file](https://github.com/gjhilton/whatiiif/blob/main/content/whatiiif.toml),
+- Every setting is explained in [the template's own copy of the file](https://github.com/gjhilton/WhatIIIF/blob/main/content/whatiiif.toml),
   which may list settings that are newer than your copy.
 
 ## Share it
@@ -144,7 +144,7 @@ Most messages say what to fix; for some, this table says more:
 
 If nothing runs at all after you upload, check that the picture went into the **content** folder. A run that worked
 may still list things **worth a look**, such as a file in `content` with a misspelt name, which the site does not use.
-If you are stuck, [open an issue](https://github.com/gjhilton/whatiiif/issues).
+If you are stuck, [open an issue](https://github.com/gjhilton/WhatIIIF/issues).
 
 ## Large pictures
 
@@ -169,8 +169,8 @@ each visitor who downloads the original; `[publish] original = false` in `conten
 
 ## Keeping up to date
 
-Your repository's workflows run steps kept in the whatiiif repository, at its latest release, so those improve by
-themselves. Once a week an **Update** workflow checks for a new release of whatiiif and, if there is one, opens a
+Your repository's workflows run steps kept in the WhatIIIF repository, at its latest release, so those improve by
+themselves. Once a week an **Update** workflow checks for a new release of WhatIIIF and, if there is one, opens a
 pull request in your repository with the rest: merge it to update. To let it do that, turn on **Settings → Actions →
 General → Workflow permissions → Allow GitHub Actions to create and approve pull requests**. It never touches your
 `content` folder. GitHub does not let it change the files in `.github/workflows`, so in the rare release that changes
@@ -178,7 +178,7 @@ one of yours, the pull request links to the new version and to yours, for you to
 
 ## No warranty
 
-whatiiif is free software, provided "as is", without warranty of any kind, express or implied. Its authors are not
+WhatIIIF is free software, provided "as is", without warranty of any kind, express or implied. Its authors are not
 liable for any claim, damages or other liability arising from its use. The [MIT licence](LICENSE) gives these terms
 in full. In particular:
 
@@ -190,4 +190,4 @@ in full. In particular:
 
 Made by [Funeral Games](https://funeralgames.co.uk). MIT licence © g.j.hilton.
 
-Working on whatiiif itself? See [DEVELOPING.md](DEVELOPING.md).
+Working on WhatIIIF itself? See [DEVELOPING.md](DEVELOPING.md).

@@ -1,4 +1,4 @@
-# Opens a pull request when a newer version of whatiiif is released. The steps are kept in the whatiiif repository
+# Opens a pull request when a newer version of WhatIIIF is released. The steps are kept in the WhatIIIF repository
 # (offer-update.yml there); this file says only when to run them.
 # Needs Settings > Actions > General > "Allow GitHub Actions to create and approve pull requests".
 name: Update
@@ -14,5 +14,5 @@ permissions:
 
 jobs:
   update:
-    uses: gjhilton/whatiiif/.github/workflows/offer-update.yml@v0
+    uses: gjhilton/WhatIIIF/.github/workflows/offer-update.yml@v0
     secrets: inherit

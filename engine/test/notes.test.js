@@ -14,7 +14,7 @@ async function content(files) {
 }
 const notesOf = async (files) => (await readContent(await content(files))).notes;
 
-const NOTES = `This harbour was drawn for whatiiif.
+const NOTES = `This harbour was drawn for WhatIIIF.
 
 ## [The lighthouse](https://gjh.github.io/harbour/?viewer=openseadragon#xywh=1200,300,400,900)
 
@@ -31,7 +31,7 @@ Wide.
 
 test('notes are read from notes.md: each heading links to its part of the picture, and the text under it is the note', async () => {
   assert.deepEqual(await notesOf({ 'notes.md': NOTES }), {
-    intro: { en: '<p>This harbour was drawn for whatiiif.</p>\n' },
+    intro: { en: '<p>This harbour was drawn for WhatIIIF.</p>\n' },
     items: [
       { region: { x: 1200, y: 300, w: 400, h: 900 }, title: { en: 'The lighthouse' }, text: { en: '<p>Built in <em>1846</em>, and still lit.</p>\n' } },
       { region: { x: 100, y: 2000, w: 3000, h: 800 }, title: { en: 'The boats' } },

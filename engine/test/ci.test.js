@@ -149,7 +149,7 @@ test('a newer release replaces the engine on a branch, leaves content/ alone and
   assert.doesNotMatch(await show('.github/workflows/deploy.yml'), /changed upstream/);
 
   // ...and the pull request has to say so, linking each file to copy and the place to paste it.
-  assert.match(await gh.calls(), /pr create --title Update whatiiif to 9\.9\.9/);
+  assert.match(await gh.calls(), /pr create --title Update WhatIIIF to 9\.9\.9/);
   const body = await gh.body();
   assert.match(body, new RegExp(`from \\*\\*example/whatiiif\\*\\* ${oldVersion.replaceAll('.', '\\.')} → 9\\.9\\.9`));
   assert.match(body, /Your `content\/` is untouched/);

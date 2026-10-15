@@ -82,7 +82,7 @@ git config user.name "github-actions[bot]"
 git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 git checkout -b "$branch"
 git add -A engine package.json package-lock.json
-git commit -m "Update whatiiif engine to $latest"
+git commit -m "Update WhatIIIF engine to $latest"
 git push --force origin "$branch"
 
 # Pull requests from earlier runs: one for this release is brought up to date; older updates are replaced, since
@@ -93,7 +93,7 @@ if [[ -n "$same" ]]; then
   gh pr edit "$same" --body "$body"
   exit 0
 fi
-if ! url=$(gh pr create --title "Update whatiiif to $latest" --body "$body" --base "$base" --head "$branch" 2> "$errors"); then
+if ! url=$(gh pr create --title "Update WhatIIIF to $latest" --body "$body" --base "$base" --head "$branch" 2> "$errors"); then
   if grep -q 'not permitted to create or approve pull requests' "$errors"; then
     echo "::error title=Update $latest is ready but could not be offered::This repository does not let workflows open pull requests. Turn on Settings → Actions → General → Workflow permissions → Allow GitHub Actions to create and approve pull requests, then run the Update workflow again; or open the pull request yourself: $mine/compare/$base...$branch?expand=1"
   fi

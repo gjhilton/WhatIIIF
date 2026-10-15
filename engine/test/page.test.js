@@ -100,7 +100,7 @@ test('the page carries the site\'s details as data that no text in them can brea
 });
 
 const builtPage = `<!doctype html><html lang="en"><head><meta charset="UTF-8" />
-<!-- whatiiif:head --><title>whatiiif</title><!-- /whatiiif:head -->
+<!-- whatiiif:head --><title>WhatIIIF</title><!-- /whatiiif:head -->
 <script type="module" src="./assets/index.js"></script></head>
 <body><!-- whatiiif:body --><!-- /whatiiif:body --><div id="root"></div></body></html>`;
 
@@ -116,7 +116,7 @@ test('personalising a built page fills in its marked places, and doing it again 
   assert.equal(html.match(/<noscript>/g).length, 1);
   assert.ok(html.includes('<title>Costs $&amp; more</title>'), 'replacement patterns in a title are not interpreted');
   assert.ok(html.includes('<script type="module" src="./assets/index.js"></script>'), 'the rest of the page is untouched');
-  assert.equal(html.includes('<title>whatiiif</title>'), false);
+  assert.equal(html.includes('<title>WhatIIIF</title>'), false);
 });
 
 test('there is nothing to personalise when the page has not been built', async () => {

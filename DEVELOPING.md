@@ -1,4 +1,4 @@
-# Developing whatiiif
+# Developing WhatIIIF
 
 ## How it works
 
@@ -41,7 +41,7 @@ this repository at the `v0` tag, which each release moves (`release.yml`), so st
 anyone copying a workflow file. Those run the copy's own `engine/ci/has-image.js`, `engine/ci/build.sh`,
 `engine/ci/update.sh` and `engine/.node-version`, and a copy may be on any earlier release, so those paths must stay
 put and keep working as they do. A workflow whose first line is `# whatiiif: template only` is never passed on to
-copies. To make a template of your own from this one, change `gjhilton/whatiiif` in `deploy.yml` and `update.yml`
+copies. To make a template of your own from this one, change `gjhilton/WhatIIIF` in `deploy.yml` and `update.yml`
 as well as in `engine/UPSTREAM`.
 
 ## Working on it

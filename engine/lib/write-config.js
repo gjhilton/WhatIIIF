@@ -48,6 +48,6 @@ export function writeConfig(settings) {
   }
   blocks.push(section('tiles', settings.tiles, DEFAULTS.tiles), section('publish', settings.publish, DEFAULTS.publish), section('colours', settings.colours));
 
-  const head = '# Made with the settings helper. Every setting is explained at\n# https://github.com/gjhilton/whatiiif/blob/main/content/whatiiif.toml';
+  const head = '# Made with the settings helper. Every setting is explained at\n# https://github.com/gjhilton/WhatIIIF/blob/main/content/whatiiif.toml';
   return `${[head, ...blocks.filter(Boolean)].join('\n\n')}\n`;
 }

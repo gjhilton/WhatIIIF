@@ -59,7 +59,7 @@ for (const [what, toml] of Object.entries(files)) {
 test('it writes only what differs from the defaults, plain text where a text is in the site language alone', () => {
   assert.equal(
     writeConfig(parseConfig('title = "Harbour"\nviewer = "openseadragon"\n[tiles]\nquality = 85\n[publish]\nfull = true')),
-    '# Made with the settings helper. Every setting is explained at\n# https://github.com/gjhilton/whatiiif/blob/main/content/whatiiif.toml\n\ntitle = "Harbour"\n',
+    '# Made with the settings helper. Every setting is explained at\n# https://github.com/gjhilton/WhatIIIF/blob/main/content/whatiiif.toml\n\ntitle = "Harbour"\n',
   );
 });
 
