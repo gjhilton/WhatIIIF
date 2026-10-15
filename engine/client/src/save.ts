@@ -78,6 +78,8 @@ export async function saveView(infoUrl: string, title: string, region?: Region):
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
   link.download = `${title.replace(/[\\/:*?"<>|]/g, '-')} ${part.x},${part.y},${part.w},${part.h}.jpg`;
+  document.body.append(link); // older Firefox downloads only from a link that is in the page
   link.click();
+  link.remove();
   setTimeout(() => URL.revokeObjectURL(link.href), 60_000);
 }

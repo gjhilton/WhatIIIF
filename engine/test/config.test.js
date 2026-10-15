@@ -219,3 +219,15 @@ for (const [toml, says] of mistakes) {
     assert.throws(() => parseConfig(toml, opts), says);
   });
 }
+
+test('settings are read in browsers without URL.parse (Safari before 18), where the settings helper reads them too', () => {
+  const { parse } = URL;
+  delete URL.parse;
+  try {
+    const settings = parseConfig('rights = "https://creativecommons.org/licenses/by/4.0/"\npicture = "https://example.org/a.tif"\nbase_url = "https://example.org/"');
+    assert.deepEqual([settings.rights, settings.picture, settings.base_url], ['http://creativecommons.org/licenses/by/4.0/', 'https://example.org/a.tif', 'https://example.org']);
+    assert.throws(() => parseConfig('rights = "not a link"'), /"rights" must be a Creative Commons or RightsStatements\.org URL/);
+  } finally {
+    URL.parse = parse;
+  }
+});

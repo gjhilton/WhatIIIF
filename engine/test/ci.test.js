@@ -322,6 +322,7 @@ test('a release moves the v0 tag that copies call, and only in the template', as
   assert.match(text, /git tag -f "\$major"/);
   // A pre-release is for trying out: copies keep running the last full release.
   assert.match(text, /if: github\.event\.repository\.is_template && !github\.event\.release\.prerelease/);
+  assert.match(text, /::error title=\$major still points at the previous release::.*move it by hand/, 'a tag left behind says how to move it');
 });
 
 test('packages are kept up to date in the template only, and checked before they are offered', async () => {

@@ -22,4 +22,7 @@ jobs:
         run: |
           major=${TAG%%.*}
           git tag -f "$major" "$TAG"
-          git push -f origin "refs/tags/$major"
+          if ! git push -f origin "refs/tags/$major"; then
+            echo "::error title=$major still points at the previous release::Copies run the steps at $major, so move it by hand: git fetch --tags && git tag -f $major $TAG && git push -f origin refs/tags/$major"
+            exit 1
+          fi

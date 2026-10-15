@@ -2,7 +2,7 @@
 // uses, to paste into the file on GitHub. It saves nothing itself, so it needs no login and no token.
 import { useEffect, useState, type ReactNode } from 'react';
 import { parseConfig } from '../../../lib/config.js';
-import { writeConfig } from '../../../lib/write-config.js';
+import { withLanguage, writeConfig } from '../../../lib/write-config.js';
 import { rightsName } from '../describe';
 import { languageName } from '../language';
 import type { Text } from '../site';
@@ -118,7 +118,7 @@ export function SettingsHelper({ initial, editUrl, title }: { initial?: Settings
           <section>
             <h2>Language</h2>
             <Field label="Language of your texts" hint={`A language code such as en, cy or de-CH: ${languageName(settings.language)}.`}>
-              <input value={settings.language} onChange={(event) => set('language', event.target.value.trim())} />
+              <input value={settings.language} onChange={(event) => setSettings((now) => withLanguage(now, event.target.value.trim()))} />
             </Field>
             <label className="check">
               <input type="checkbox" checked={translating} onChange={(event) => setTranslating(event.target.checked)} />
@@ -233,10 +233,10 @@ export function SettingsHelper({ initial, editUrl, title }: { initial?: Settings
             <details>
               <summary>Advanced</summary>
               <Field label="Tile size, in pixels" hint="64 to 4096.">
-                <input type="number" value={settings.tiles.size} onChange={(event) => set('tiles', { ...settings.tiles, size: event.target.valueAsNumber })} />
+                <input type="number" min={64} max={4096} value={settings.tiles.size} onChange={(event) => set('tiles', { ...settings.tiles, size: event.target.valueAsNumber })} />
               </Field>
               <Field label="JPEG quality" hint="1 to 100.">
-                <input type="number" value={settings.tiles.quality} onChange={(event) => set('tiles', { ...settings.tiles, quality: event.target.valueAsNumber })} />
+                <input type="number" min={1} max={100} value={settings.tiles.quality} onChange={(event) => set('tiles', { ...settings.tiles, quality: event.target.valueAsNumber })} />
               </Field>
               <Field label="Address, for a custom domain" hint="Only if GitHub Pages does not know it already.">
                 <input value={settings.base_url ?? ''} onChange={(event) => set('base_url', event.target.value || undefined)} />

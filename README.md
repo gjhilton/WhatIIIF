@@ -68,8 +68,8 @@ The browser uploads files of up to 25 MB. For a bigger picture, see [Large pictu
 
 ## Describe your picture (optional)
 
-The easiest way is your site's **settings helper**, at `https://YOUR-USERNAME.github.io/YOUR-REPOSITORY/settings.html`.
-Fill in the form, copy what it makes, and paste it over `content/whatiiif.toml` on GitHub: the helper links to the
+The easiest way is your site's **settings helper**, at `https://YOUR-USERNAME.github.io/YOUR-REPOSITORY/settings.html`
+once your site has been built. Fill in the form, copy what it makes, and paste it over `content/whatiiif.toml` on GitHub: the helper links to the
 file, and checks everything as the build will. It starts from your site's settings as they are.
 
 ![The settings helper: the form on the left, and on the right the whatiiif.toml it writes, ready to copy](engine/artwork/settings.png)
@@ -156,13 +156,14 @@ For other languages, add `notes.cy.md` and so on, with the same notes in the sam
 links, as the notes in `notes.md` say where each part is: `## Y goleudy`.
 
 The notes are also written into the manifest, as IIIF annotations, so other IIIF viewers can show them: Mirador opens
-with its own list of them.
+with its own list of them, where there is room beside the picture.
 
 ## Change the picture
 
 Delete the old file from the `content` folder, then upload the new one. The site holds one picture at a time, so
 uploading the new one first stops the build until the old one is gone. For a picture given by its link, see
-[Large pictures](#large-pictures).
+[Large pictures](#large-pictures). If you have [notes](#going-further-notes-on-the-picture-and-a-tour), their links
+point at parts of the old picture, so copy them again from the new one; the build stops if one no longer fits.
 
 ## If something goes wrong
 

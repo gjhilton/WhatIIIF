@@ -24,6 +24,9 @@ export function Tour({ site, language, at, onGo, onEnd }: Props) {
     const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
     panel.current?.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'nearest' });
   }, [at]);
+  // Keyboard focus moves into the tour when it starts, so Next is one Tab away, not back past the whole page.
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => heading.current?.focus({ preventScroll: true }), []);
   const keys = (event: KeyboardEvent) => {
     if (event.key === 'Escape') onEnd();
   };
@@ -32,7 +35,7 @@ export function Tour({ site, language, at, onGo, onEnd }: Props) {
     <section className="tour" ref={panel} aria-label="Tour" onKeyDown={keys}>
       <div aria-live="polite">
         <p className="tour-step">Note {at + 1} of {notes.length}</p>
-        <h2 lang={title.lang}>{title.text}</h2>
+        <h2 lang={title.lang} ref={heading} tabIndex={-1}>{title.text}</h2>
         {text && <div className="prose" lang={text.lang} dangerouslySetInnerHTML={{ __html: text.text }} />}
       </div>
       <p className="tour-buttons">

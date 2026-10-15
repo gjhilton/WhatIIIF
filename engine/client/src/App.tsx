@@ -56,9 +56,14 @@ export function App({ site }: { site: Site }) {
     },
     [site, show],
   );
+  const tourButton = useRef<HTMLButtonElement>(null);
   const startTour = () => {
     setTour(0);
     showNote(0);
+  };
+  const endTour = () => {
+    setTour(undefined);
+    tourButton.current?.focus({ preventScroll: true }); // where keyboard focus was when the tour began
   };
   useEffect(() => {
     const followAddress = () => {
@@ -120,7 +125,7 @@ export function App({ site }: { site: Site }) {
         </div>
       </header>
       {viewerPane}
-      {tour !== undefined && <Tour site={site} language={language} at={tour} onGo={showNote} onEnd={() => setTour(undefined)} />}
+      {tour !== undefined && <Tour site={site} language={language} at={tour} onGo={showNote} onEnd={endTour} />}
       <main className="content">
         <Details
           site={site}
@@ -133,6 +138,7 @@ export function App({ site }: { site: Site }) {
           note={note}
           showNote={showNote}
           startTour={startTour}
+          tourButton={tourButton}
         />
       </main>
     </>

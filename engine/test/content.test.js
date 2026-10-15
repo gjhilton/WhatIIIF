@@ -32,6 +32,12 @@ test('tells the user to convert unsupported formats', async () => {
   await assert.rejects(findImage(await named('scan.jp2')), /scan\.jp2.*not supported.*convert.*tiff/is);
 });
 
+test('names the files people commit that the build cannot read: camera raw, JPEG XL, PDF and SVG', async () => {
+  for (const name of ['IMG_0042.DNG', 'IMG_0042.CR3', 'DSC_0042.NEF', 'photo.jxl', 'scan.pdf', 'plan.svg']) {
+    await assert.rejects(findImage(await named(name)), new RegExp(`${name.replace('.', '\\.')} is not supported yet\\. Convert it to TIFF, PNG or JPEG`), name);
+  }
+});
+
 test('accepts the formats the web uses: WebP, AVIF and GIF', async () => {
   for (const [name, format] of [['view.webp', 'image/webp'], ['view.AVIF', 'image/avif'], ['view.gif', 'image/gif']]) {
     assert.equal((await findImage(await named(name))).format, format, name);
@@ -97,11 +103,11 @@ test('files in content/ that the site will not use are pointed out, with the nam
 const releaseLink = 'https://github.com/gjh/harbour/releases/download/picture/Harbour%20scan.tif';
 
 /** A stand-in for the web that answers `link` with `body` (or `status`) and records what it was asked for. */
-function web({ link = releaseLink, body, status = 200 }) {
+function web({ link = releaseLink, body, status = 200, headers }) {
   const asked = [];
   const fetch = async (url) => {
     asked.push(url);
-    return url === link ? new Response(body, { status }) : new Response('Not Found', { status: 404, statusText: 'Not Found' });
+    return url === link ? new Response(body, { status, headers }) : new Response('Not Found', { status: 404, statusText: 'Not Found' });
   };
   return { fetch, asked };
 }
@@ -132,12 +138,29 @@ test('a picture given by its link is told apart by what it holds, not what it is
   assert.equal(image.name, 'download');
 });
 
+test('a picture given by its link is named as the server names it, where it does', async () => {
+  const png = await sharp({ create: { width: 3, height: 2, channels: 3, background: '#808080' } }).png().toBuffer();
+  const link = 'https://example.org/download?id=42';
+  for (const [disposition, name] of [
+    ['attachment; filename="Harbour scan.png"', 'Harbour scan.png'],
+    ["attachment; filename=harbour.png; filename*=UTF-8''Harbwr%20%C3%A2.png", 'Harbwr â.png'],
+    ['inline', 'download'],
+  ]) {
+    const answer = web({ link, body: png, headers: { 'content-disposition': disposition } });
+    const { image } = await readContent(await linked(link), { fetch: answer.fetch, downloads: await tempDir('downloads') });
+    assert.equal(image.name, name, disposition);
+  }
+});
+
 const badLinks = [
   ['a link that leads nowhere', { status: 404 }, /Could not download the picture at https:\/\/github\.com\/gjh\/harbour\/releases\/download\/picture\/Harbour%20scan\.tif: the server answered 404\. Check that the link is right and that anyone can open it/],
   ['a link to a web page about the picture', { body: '\n<!DOCTYPE html><html>' }, /is a web page, not a picture\. Use a link that downloads the picture itself/],
   ['a picture in a format that cannot be read yet', { body: Buffer.from('\0\0\0\x18ftypheic\0\0\0\0') }, /The picture at .* is an iPhone photo \(HEIC\), which cannot be read here\. Make it a JPEG first/],
   ['a JPEG 2000 file', { body: Buffer.from([0, 0, 0, 0x0c, 0x6a, 0x50, 0x20, 0x20, 0x0d, 0x0a]) }, /The picture at .* is a JPEG 2000 file, which is not supported yet\. Convert it to TIFF, PNG or JPEG/],
   ['something that is not a picture at all', { body: 'PK\x03\x04' }, /The picture at .* is not a TIFF, PNG, JPEG, WebP, AVIF or GIF\./],
+  ['a video, which starts much as an iPhone photo does', { body: Buffer.from('\0\0\0\x18ftypisom\0\0\0\0') }, /The picture at .* is not a TIFF, PNG, JPEG, WebP, AVIF or GIF\./],
+  ['a PDF', { body: '%PDF-1.7\n' }, /The picture at .* is a PDF, which is not supported yet\. Convert it to TIFF, PNG or JPEG/],
+  ['a drawing in SVG', { body: '<?xml version="1.0"?>\n<svg xmlns="http://www.w3.org/2000/svg">' }, /The picture at .* is a drawing in SVG, which is not supported yet/],
 ];
 
 for (const [what, answer, says] of badLinks) {

@@ -15,8 +15,8 @@ const FORMATS = {
   '.gif': 'image/gif',
 };
 // Pictures in other formats, named in the error so their owner knows to convert them. HEIC, the iPhone's own
-// format, is compressed in a way the slicer's libvips is built without.
-const UNSUPPORTED = ['.jp2', '.j2k', '.heic', '.heif', '.bmp', '.psd'];
+// format, is compressed in a way the slicer's libvips is built without; camera raw files need developing first.
+const UNSUPPORTED = ['.jp2', '.j2k', '.jxl', '.heic', '.heif', '.bmp', '.psd', '.pdf', '.svg', '.dng', '.cr2', '.cr3', '.nef', '.arw', '.raf', '.orf', '.rw2'];
 
 /** What to tell the owner of a picture the slicer cannot read, `what` being where it is or what it is called. */
 export function cannotRead(what, kind) {
@@ -68,7 +68,10 @@ const SIGNATURES = [
   ['JPEG 2000 file', undefined, [0xff, 0x4f, 0xff, 0x51]],
   ['BMP file', undefined, [0x42, 0x4d]],
   ['Photoshop file', undefined, [...'8BPS'].map((c) => c.charCodeAt(0))],
+  ['PDF', undefined, [...'%PDF'].map((c) => c.charCodeAt(0))],
 ];
+// The brands of the ISO media files that are HEIC photos; other files of that kind (MP4 videos, say) are not.
+const HEIC = /^(heic|heix|hevc|hevx|heim|heis|mif1|msf1)$/;
 
 /**
  * What a file holds, judged by its first bytes: `{ name, format }` for a picture (`format` only for one the slicer
@@ -81,7 +84,13 @@ export async function sniff(path) {
   for (const [name, format, bytes] of SIGNATURES) if (starts(bytes)) return { name, format };
   const ascii = head.toString('latin1');
   if (ascii.startsWith('RIFF') && ascii.slice(8, 12) === 'WEBP') return { name: 'WebP', format: 'image/webp' };
-  if (ascii.slice(4, 8) === 'ftyp') return /^(avif|avis)/.test(ascii.slice(8, 12)) ? { name: 'AVIF', format: 'image/avif' } : { name: 'HEIC' };
-  if (/^(\xEF\xBB\xBF)?\s*</.test(ascii)) return { page: true }; // read as latin1, a UTF-8 byte order mark is three characters
+  if (ascii.slice(4, 8) === 'ftyp') {
+    const brand = ascii.slice(8, 12);
+    if (/^(avif|avis)$/.test(brand)) return { name: 'AVIF', format: 'image/avif' };
+    return HEIC.test(brand) ? { name: 'HEIC' } : {};
+  }
+  // Read as latin1, a UTF-8 byte order mark is three characters.
+  if (/^(\xEF\xBB\xBF)?\s*(<\?xml[^>]*>\s*)?<svg[\s>]/i.test(ascii)) return { name: 'drawing in SVG' };
+  if (/^(\xEF\xBB\xBF)?\s*</.test(ascii)) return { page: true };
   return {};
 }

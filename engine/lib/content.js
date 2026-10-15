@@ -94,14 +94,22 @@ async function download(url, dir, fetch) {
     const told = cannotRead(`The picture at ${url}`, name);
     throw new Error(name === 'HEIC' ? told : `${told} and link to that instead.`);
   }
-  const file = basename(new URL(url).pathname);
-  let fileName;
-  try {
-    fileName = decodeURIComponent(file);
-  } catch {
-    fileName = file;
-  }
-  return { path, name: fileName || 'picture', format, bytes: (await stat(path)).size, url };
+  return { path, name: fileName(response.headers.get('content-disposition'), url) || 'picture', format, bytes: (await stat(path)).size, url };
+}
+
+/** What a downloaded file is called: what the server says (Content-Disposition), else the last part of its address. */
+function fileName(disposition, url) {
+  const decoded = (text) => {
+    try {
+      return decodeURIComponent(text);
+    } catch {
+      return text;
+    }
+  };
+  const encoded = /filename\*\s*=\s*UTF-8''([^;]+)/i.exec(disposition ?? '')?.[1];
+  const plain = /filename\s*=\s*("([^"]*)"|[^;]+)/i.exec(disposition ?? '');
+  const given = encoded ? decoded(encoded.trim()) : (plain?.[2] ?? plain?.[1])?.trim();
+  return basename(given || decoded(basename(new URL(url).pathname)));
 }
 
 /** Every language the texts are written in: the site's own first, then the rest alphabetically. */

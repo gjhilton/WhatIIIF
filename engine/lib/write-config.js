@@ -27,6 +27,23 @@ function section(name, table = {}, defaults = {}) {
   return lines.length ? [`[${name}]`, ...lines].join('\n') : undefined;
 }
 
+/**
+ * `settings` with their texts said to be in `language`: a text in the old language moves to the new one, unless it
+ * is given in that already, in which case the old one stays as a translation. What a form needs when its owner says
+ * what language they wrote in, which is usually after writing.
+ */
+export function withLanguage(settings, language) {
+  const from = settings.language ?? DEFAULTS.language;
+  const move = (map) => {
+    if (!map || !(from in map) || language in map) return map;
+    const { [from]: words, ...rest } = map;
+    return { [language]: words, ...rest };
+  };
+  const moved = Object.fromEntries(TEXTS.map((name) => [name, move(settings[name])]));
+  const metadata = settings.metadata?.map(({ label, value }) => ({ label: move(label), value: move(value) }));
+  return { ...settings, ...moved, ...(metadata && { metadata }), language };
+}
+
 /** whatiiif.toml for `settings`, which config.js's parseConfig gives, or a form fills in the same shape. */
 export function writeConfig(settings) {
   const { language = DEFAULTS.language } = settings;

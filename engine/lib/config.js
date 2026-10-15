@@ -44,6 +44,14 @@ const fail = (message) => {
 /** A value as it was written in the file: text in quotes, a number or date as it is. */
 const written = (value) => (typeof value === 'string' ? `"${value}"` : value instanceof Date ? value.toISOString() : String(value));
 const unquoted = (value) => (value instanceof Date ? value.toISOString() : String(value));
+/** `text` as a URL, or null if it is not one. (URL.parse would do, but Safari has had it only since version 18.) */
+function parseUrl(text) {
+  try {
+    return new URL(text);
+  } catch {
+    return null;
+  }
+}
 const isTable = (value) => typeof value === 'object' && value !== null && !Array.isArray(value) && !(value instanceof Date);
 
 function checkKeys(table, part) {
@@ -124,7 +132,7 @@ function metadata(raw, language) {
  */
 function rights(value) {
   if (value === undefined) return undefined;
-  const url = typeof value === 'string' ? URL.parse(value) : null;
+  const url = typeof value === 'string' ? parseUrl(value) : null;
   const host = url && ['http:', 'https:'].includes(url.protocol) && url.hostname.replace(/^www\./, '');
   const path = url?.pathname.split('/').filter(Boolean) ?? [];
   if (host === 'creativecommons.org' && ['licenses', 'publicdomain'].includes(path[0]) && path.length >= 3) {
@@ -142,7 +150,7 @@ function rights(value) {
 /** An address on the web, without the slashes it may end in; `example` and `otherwise` explain a wrong one. */
 function webAddress(value, setting, example, otherwise = '') {
   if (value === undefined) return undefined;
-  const url = typeof value === 'string' ? URL.parse(value) : null;
+  const url = typeof value === 'string' ? parseUrl(value) : null;
   if (!url || !['http:', 'https:'].includes(url.protocol)) fail(`"${setting}" must be ${example} (got ${written(value)})${otherwise}`);
   return value.replace(/\/+$/, '');
 }

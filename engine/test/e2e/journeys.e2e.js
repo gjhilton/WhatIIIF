@@ -315,6 +315,7 @@ suite('a photographer uploads a phone photo on github.com and fills in every set
   test('printed, the page shows the view as it was on screen, the details and the citation, black on white', async () => {
     const { page, close } = await open(site, '?viewer=openseadragon#xywh=200,300,400,500', { colorScheme: 'dark' });
     await page.locator('.openseadragon-container').first().waitFor();
+    await until(() => !page.url().endsWith('#xywh=200,300,400,500'), 'the viewer to report its view, which the citation links to');
     await page.waitForLoadState('networkidle');
     await page.evaluate(() => dispatchEvent(new Event('beforeprint')));
     await page.emulateMedia({ media: 'print' });
@@ -346,6 +347,12 @@ suite('a photographer uploads a phone photo on github.com and fills in every set
     const { settings } = await json(join(site.dist, 'settings.json'));
     const asJson = (value) => JSON.parse(JSON.stringify(value)); // as settings.json has them, unset settings left out
     assert.deepEqual(asJson(parseConfig(await file.inputValue())), { ...settings, title: { en: 'Harbour at night' } }, 'everything else as it was');
+
+    // Saying the texts are in Welsh takes them with it, rather than leaving them as English to translate.
+    await page.getByRole('textbox', { name: 'Language of your texts' }).fill('cy');
+    assert.equal(await page.getByRole('textbox', { name: 'Title', exact: true }).inputValue(), 'Harbour at night');
+    assert.match(await file.inputValue(), /^language = "cy"\ntitle = "Harbour at night"$/m);
+    await page.getByRole('textbox', { name: 'Language of your texts' }).fill('en');
 
     const size = page.getByRole('textbox', { name: 'Real size' });
     await size.fill('big');
@@ -539,6 +546,8 @@ suite('a visitor shares the part of the picture they have zoomed into', () => {
   test('the view on screen can be saved as a picture, made from the published tiles', async () => {
     const { page, fetched, close } = await open(site, '?viewer=openseadragon#xywh=2000,1500,500,400');
     await until(() => fetched.includes(tile(2048, 1536)), 'the view to open');
+    // The address names the part asked for until the viewer reports the view it opened on, the pane's shape.
+    await until(() => !page.url().endsWith('#xywh=2000,1500,500,400'), 'the viewer to report its view');
     await page.waitForLoadState('networkidle');
     const [x, y, w, h] = new URL(page.url()).hash.slice('#xywh='.length).split(',').map(Number);
     const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'This view, as a JPEG' }).click()]);
@@ -675,6 +684,61 @@ suite('a museum adds notes to its picture, which make a tour', () => {
       assert.deepEqual(problems, []);
       await close();
     }
+  });
+
+  test('in Mirador, with its list of notes open beside the picture, a link to the view describes what is on screen', async () => {
+    const { page, problems, close } = await open(site, '?viewer=mirador');
+    await page.locator('.mirador-window .openseadragon-container').first().waitFor();
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(1000); // time for Mirador to report the view it opened on
+    assert.equal(new URL(page.url()).hash, '', 'the whole picture, as Mirador opens on it, names no part of it in the address');
+    await page.locator('.notes').getByRole('button', { name: 'The boats' }).click();
+    // The address names the boats themselves at once, then the view Mirador reports once it has got there.
+    await until(() => new URL(page.url()).hash.startsWith('#xywh=') && !page.url().endsWith(`#xywh=${notes[1][1]}`), 'Mirador to report its view');
+    assert.ok(holds(page, at(notes[1][1])), 'the view holds the boats');
+    const [, , w, h] = new URL(page.url()).hash.match(/(\d+),(\d+),(\d+),(\d+)$/).slice(1).map(Number);
+    const screen = await page.locator('.mirador-window .openseadragon-container').first().boundingBox();
+    const shape = w / h / (screen.width / screen.height);
+    assert.ok(Math.abs(shape - 1) < 0.03, `the view is ${w} × ${h}, on a screen ${Math.round(screen.width)} × ${Math.round(screen.height)}`);
+    assert.ok(Math.abs(w / 900 - 1) < 0.02, `the boats, wider than the screen's shape, fill its width (${w} wide)`);
+    assert.deepEqual(problems, []);
+    await close();
+  });
+
+  test('in Mirador, with its list of notes open, a link to a part of the picture opens on just that part', async () => {
+    const { page, problems, close } = await open(site, `?viewer=mirador#xywh=${notes[1][1]}`);
+    await until(() => new URL(page.url()).hash.startsWith('#xywh=') && !page.url().endsWith(`#xywh=${notes[1][1]}`), 'Mirador to report its view');
+    assert.ok(holds(page, at(notes[1][1])), 'the view holds the boats');
+    const [, , w] = new URL(page.url()).hash.match(/(\d+),(\d+),(\d+),(\d+)$/).slice(1).map(Number);
+    assert.ok(Math.abs(w / 900 - 1) < 0.02, `the boats fill the width of the picture's part of the window (${w} wide)`);
+    assert.deepEqual(problems, []);
+    await close();
+  });
+
+  test('on a narrow screen Mirador leaves its list of notes closed, to leave room for the picture: the page lists them', async () => {
+    const { page, problems, close } = await open(site, '?viewer=mirador', { device: { viewport: { width: 600, height: 900 } } });
+    const sidebar = page.locator('.mirador-window-menu-btn');
+    await sidebar.waitFor();
+    assert.equal(await sidebar.getAttribute('aria-expanded'), 'false');
+    assert.deepEqual(problems, []);
+    await close();
+  });
+
+  test('the tour takes keyboard focus when it starts, and gives it back when it ends', async () => {
+    const { page, close } = await open(site, '?viewer=openseadragon');
+    await page.locator('.openseadragon-container').first().waitFor();
+    const start = page.getByRole('button', { name: 'Take the tour' });
+    await start.focus();
+    await page.keyboard.press('Enter');
+    const tour = page.getByRole('region', { name: 'Tour' });
+    await tour.waitFor();
+    assert.equal(await tour.evaluate((element) => element.contains(document.activeElement)), true, 'focus moves into the tour');
+    await page.keyboard.press('Tab');
+    assert.equal(await page.evaluate(() => document.activeElement.textContent), 'Next', 'Back is disabled, so Next is first');
+    await page.keyboard.press('Escape');
+    assert.equal(await tour.count(), 0);
+    assert.equal(await start.evaluate((element) => element === document.activeElement), true, 'focus goes back to Take the tour');
+    await close();
   });
 
   test('a picture without notes has no markers, list or tour', async () => {

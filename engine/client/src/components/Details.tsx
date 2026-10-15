@@ -1,4 +1,4 @@
-import { useState, type MouseEvent } from 'react';
+import { useState, type MouseEvent, type RefObject } from 'react';
 import type { Site } from '../site';
 import { inLanguage } from '../language';
 import { regionLinked, type Region } from '../address';
@@ -23,9 +23,10 @@ interface Props {
   note?: number;
   showNote: (index: number) => void;
   startTour: () => void;
+  tourButton: RefObject<HTMLButtonElement | null>;
 }
 
-export function Details({ site, language, link, embed, cite, show, save, note, showNote, startTour }: Props) {
+export function Details({ site, language, link, embed, cite, show, save, note, showNote, startTour, tourButton }: Props) {
   const [saving, setSaving] = useState<'saving' | 'failed'>();
   const saveView = async () => {
     setSaving('saving');
@@ -64,7 +65,7 @@ export function Details({ site, language, link, embed, cite, show, save, note, s
         {description && (
           <div className="prose" lang={description.lang} onClick={followDetailLink} dangerouslySetInnerHTML={{ __html: description.text }} />
         )}
-        <Notes site={site} language={language} current={note} onShow={showNote} onTour={startTour} />
+        <Notes site={site} language={language} current={note} onShow={showNote} onTour={startTour} tourButton={tourButton} />
         <table className="meta">
           <tbody>
             {rows.map(([label, value], i) => (

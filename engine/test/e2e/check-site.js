@@ -89,6 +89,17 @@ test('a shared link shows a picture that is published', async () => {
   const picture = html.match(/<meta property="og:image" content="([^"]+)">/)?.[1];
   assert.ok(picture?.startsWith(`${siteUrl}/`), `og:image is ${picture}`);
   assert.equal(await published(picture.slice(siteUrl.length + 1)), true);
+  assert.equal(await published('icon.png'), true, 'the icon browsers show for the page');
+});
+
+test('the settings helper opens with the site\'s settings, ready to copy', async () => {
+  const { page, problems, close } = await browse(browser, { siteUrl, fileFor, query: 'settings.html' });
+  const file = page.getByRole('textbox', { name: 'whatiiif.toml' });
+  await file.waitFor();
+  assert.match(await file.inputValue(), /^# Made with the settings helper/);
+  assert.equal(await page.getByRole('alert').count(), 0, 'the settings as they are have nothing wrong with them');
+  assert.deepEqual(problems, []);
+  await close();
 });
 
 test('without JavaScript the page shows the picture, with alt text', async () => {

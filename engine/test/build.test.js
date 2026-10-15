@@ -239,6 +239,14 @@ test('a picture too big for GitHub Pages at any quality stops the build, saying 
   );
 });
 
+test('the summary of a run says how many notes the picture has, and in which languages', async () => {
+  const { content } = await setup();
+  await writeFile(join(content, 'notes.md'), '## [The boat](#xywh=100,200,300,400)\n\n## [The gull](#xywh=10,20,30,40)\n');
+  await writeFile(join(content, 'notes.cy.md'), '## Y cwch\n\n## Yr wylan\n');
+  const { summary } = await buildInActions(content, await tempDir('dist'));
+  assert.match(summary, /\| Notes \| 2, in English and Welsh \|/);
+});
+
 test('the page is told who made the picture, when, and how big it is', async () => {
   const { content, out } = await setup('creator = "J. M. W. Turner"\ndate = { de = "um 1890" }\ndimensions = "120 × 90 cm"');
   const warnings = [];
@@ -302,4 +310,29 @@ test('a picture cut into tiles over 2000 pixels across, without the full-size JP
   }
   await access(join(out, 'icon.png'));
   await access(join(out, 'card.jpg'));
+});
+
+test('an empty SITE_BASE_URL counts as none', async () => {
+  const { content, out } = await setup();
+  await build({ contentDir: content, outDir: out, env: { SITE_BASE_URL: '' } });
+  assert.equal((await read(join(out, 'site.json'))).pageUrl, 'http://localhost:4173/');
+});
+
+test('a note outside the picture stops the build before the picture is sliced, which can take minutes', async () => {
+  const { content, out } = await setup();
+  await writeFile(join(content, 'notes.md'), '## [The boat](#xywh=1900,200,300,400)\n');
+  const logged = [];
+  await assert.rejects(build({ contentDir: content, outDir: out, env: {}, log: (line) => logged.push(line) }), /runs off the picture/);
+  assert.deepEqual(logged.filter((line) => line.startsWith('Slicing')), []);
+});
+
+test('a photo turned on its side by its camera is measured upright, for its notes as for its tiles', async () => {
+  const content = await tempDir('content');
+  const out = await tempDir('dist');
+  // 300 wide and 200 high as stored, 200 wide and 300 high as seen.
+  await sharp({ create: { width: 300, height: 200, channels: 3, background: '#808080' } }).jpeg().withMetadata({ orientation: 6 }).toFile(join(content, 'phone.jpg'));
+  await writeFile(join(content, 'notes.md'), '## [The top](#xywh=0,250,200,50)\n');
+  await build({ contentDir: content, outDir: out, env: {} });
+  const { width, height } = await read(join(out, 'site.json'));
+  assert.deepEqual({ width, height }, { width: 200, height: 300 });
 });

@@ -2,7 +2,7 @@ import { mkdtemp, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { readContent } from './content.js';
-import { slice } from './slice.js';
+import { pictureSize, slice } from './slice.js';
 import { PAGES_BUDGET_BYTES, applyBudget } from './budget.js';
 import { missingFiles } from './service.js';
 import { buildManifest } from './manifest.js';
@@ -38,11 +38,26 @@ export async function build({ contentDir, outDir, env = process.env, log = () =>
     const { image, config, settings, description, notes, languages, unused } = await readContent(contentDir, { fetch, downloads });
     for (const file of unused) warn(file);
 
-    const baseUrl = (config.base_url ?? env.SITE_BASE_URL ?? LOCAL_BASE_URL).replace(/\/+$/, '');
+    const baseUrl = (config.base_url || env.SITE_BASE_URL || LOCAL_BASE_URL).replace(/\/+$/, '');
     const pageUrl = `${baseUrl}/`;
     const imageId = `${baseUrl}/iiif/image`;
     const manifestId = `${baseUrl}/iiif/manifest.json`;
     const imageDir = join(outDir, 'iiif/image');
+
+    // What can be checked against the picture's size is checked before it is sliced, which can take minutes.
+    const size = await pictureSize(image.path);
+    const pixels = `${size.width.toLocaleString('en-GB')} × ${size.height.toLocaleString('en-GB')} pixels`;
+    for (const { region: { x, y, w, h }, title } of notes?.items ?? []) {
+      if (w < 1 || h < 1 || x + w > size.width || y + h > size.height) {
+        throw new Error(
+          `content/notes.md: the note "${title[config.language]}" is about ${x},${y},${w},${h}, which runs off the picture, ${pixels}. Copy its link from "Link to this view" again.`,
+        );
+      }
+    }
+    const { dimensions } = config;
+    if (dimensions && Math.abs(dimensions.width / dimensions.height / (size.width / size.height) - 1) > 0.05) {
+      warn(`The dimensions, ${dimensions.text}, are not the shape of the picture, ${pixels}: is one of them wrong, or the picture cropped? Measurements follow the width.`);
+    }
 
     // Sliced at the quality asked for, then, if the tiles are too big for GitHub Pages even without the full-size
     // JPEG, again at lower qualities until they fit.
@@ -66,19 +81,6 @@ export async function build({ contentDir, outDir, env = process.env, log = () =>
     }
     if (droppedFull) warn('The site would have been too big for GitHub Pages, so the full-size JPEG was left out.');
     if (quality < asked) warn(`The tiles were too big for GitHub Pages at quality ${asked}, so they were made at quality ${quality}.`);
-    for (const { region: { x, y, w, h }, title } of notes?.items ?? []) {
-      if (w < 1 || h < 1 || x + w > info.width || y + h > info.height) {
-        const pixels = `${info.width.toLocaleString('en-GB')} × ${info.height.toLocaleString('en-GB')} pixels`;
-        throw new Error(
-          `content/notes.md: the note "${title[config.language]}" is about ${x},${y},${w},${h}, which runs off the picture, ${pixels}. Copy its link from "Link to this view" again.`,
-        );
-      }
-    }
-    const { dimensions } = config;
-    if (dimensions && Math.abs(dimensions.width / dimensions.height / (info.width / info.height) - 1) > 0.05) {
-      const pixels = `${info.width.toLocaleString('en-GB')} × ${info.height.toLocaleString('en-GB')} pixels`;
-      warn(`The dimensions, ${dimensions.text}, are not the shape of the picture, ${pixels}: is one of them wrong, or the picture cropped? Measurements follow the width.`);
-    }
 
     const missing = await missingFiles(imageDir);
     if (missing.length) {
