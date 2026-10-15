@@ -8,7 +8,7 @@ name: Live
 on:
   push:
     branches: [main]
-    paths: ['engine/**', 'package*.json', '.github/workflows/deploy.yml', '.github/workflows/live.yml']
+    paths: ['engine/**', 'package*.json', '.github/workflows/deploy.yml', '.github/workflows/publish.yml', '.github/workflows/live.yml']
   workflow_dispatch:
 
 permissions:

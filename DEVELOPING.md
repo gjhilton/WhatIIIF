@@ -22,9 +22,9 @@ at the top of the run's page as annotations, with a summary below them (`report.
   ask for, and which of those a folder is missing. The build refuses to deploy a service that is missing any.
 - `budget.js` leaves out the full-size JPEG if the site would otherwise exceed GitHub Pages' size limit; if the
   tiles alone are still too big, `build.js` slices again at lower JPEG qualities, down to 45, until they fit.
-- `manifest.js` writes the IIIF Presentation 3.0 manifest, notes on the picture as commenting annotations. The original file is not published; the manifest links
-  to it in the repository (`original.js`), unless the repository is private or the owner says not to, or at the
-  address it was downloaded from.
+- `manifest.js` writes the IIIF Presentation 3.0 manifest, with any notes on the picture as commenting annotations.
+  The original file is not published; the manifest links to it in the repository (`original.js`), unless the
+  repository is private or the owner says not to, or at the address it was downloaded from.
 - `page.js` writes the title, icon (cut from the picture), the owner's colours, social-card tags, a no-JavaScript
   fallback and `site.json` itself into the built page, between marker comments, so the page Vite builds is the same
   for every image. A page without them (Vite's own) loads `site.json` instead.
@@ -32,10 +32,10 @@ at the top of the run's page as annotations, with a summary below them (`report.
 The page (`engine/client/src/`): `App.tsx` holds what is on screen (viewer, language, part of the picture),
 `address.ts` reads and writes the page's address so that any view is a link (and a link in the description can
 point at a detail), `language.ts` chooses the visitor's language, `describe.ts` names licences and downloads, and
-`viewers/` holds one adapter per viewer, each downloaded only when it is chosen. Notes, when a site has them, are
+`viewers/` holds one adapter per viewer, each downloaded only when it is chosen. An adapter mounts its viewer, can
+move it to a part of the picture, and reports where the visitor has moved it. Notes, when a site has them, are
 `components/Notes.tsx` (the list), `components/Tour.tsx`, and markers the OpenSeadragon adapter puts on the picture;
-Mirador shows them from the manifest. An adapter mounts its viewer, can
-move it to a part of the picture, and reports where the visitor has moved it. Every colour is in `colours.css`, with
+Mirador lists them from the manifest. None of these appear in an embedded view. Every colour is in `colours.css`, with
 black and white swapped for dark mode; nothing else names one, and both viewers take theirs from it (`colours.ts`),
 opening again if the computer switches between light and dark.
 
@@ -55,7 +55,7 @@ Needs Node 24 or newer.
 npm install
 npm run build        # page and site from content/ into dist/; put an image in content/ first
 npm run preview      # http://localhost:4173
-npm test             # unit and integration tests, about ten seconds
+npm test             # unit and integration tests, about twenty seconds
 npm run typecheck
 npx playwright install chromium-headless-shell webkit   # once
 npm run test:e2e     # whole journeys in real browsers, about two minutes
@@ -119,7 +119,8 @@ Two checks cover those:
 
 Copies of the template update themselves from the repository named in `engine/UPSTREAM`
 (`.github/workflows/update.yml` and `engine/ci/update.sh`). To release, bump `engine/VERSION` and publish a GitHub
-release tagged `vX.Y.Z`; `release.yml` then moves the `v0` tag to it, and every copy runs its steps from then on. An update replaces `engine/`, `package.json` and `package-lock.json` only, and is never
-offered to a copy already on that version or a later one. GitHub does not let the workflow change workflow files,
-so users copy those by hand; the pull request says when they need to (`ci.yml` and `live.yml` run only in the
-template, so changes to those are not mentioned).
+release tagged `vX.Y.Z`; `release.yml` then moves the `v0` tag to it (a pre-release leaves it where it is), and every
+copy runs its steps from then on. An update replaces `engine/`, `package.json` and `package-lock.json` only, and is
+never offered to a copy already on that version or a later one. GitHub does not let the workflow change workflow
+files, so users copy those by hand; the pull request says when they need to, leaving out any workflow marked
+`# whatiiif: template only` (and `ci.yml` and `live.yml`, from before there was a marker).

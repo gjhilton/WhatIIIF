@@ -176,6 +176,7 @@ Most messages say what to fix; for some, this table says more:
 | … is not supported yet | Save the picture as TIFF, PNG or JPEG and upload that instead. |
 | … is an iPhone photo (HEIC) | Make it a JPEG: on a Mac, open it in Preview and choose **File → Export**, then JPEG. |
 | content/whatiiif.toml: … | Fix the setting it names; the message says how. |
+| content/notes.md: … | Fix the note it names; the message says how. |
 | Could not download the picture at … | Check the `picture` link: paste it into a private browser window, and it should download the picture. |
 | Timeout reached, or Deployment cancelled | GitHub Pages was slow. Re-running may not help: make any small change, such as a line in `content/whatiiif.toml`, and commit it to start afresh. |
 

@@ -11,7 +11,8 @@ permissions:
 
 jobs:
   move-tag:
-    if: github.event.repository.is_template
+    # A pre-release is for trying out: copies keep running the last full release.
+    if: github.event.repository.is_template && !github.event.release.prerelease
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
