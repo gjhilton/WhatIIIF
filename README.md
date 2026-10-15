@@ -7,36 +7,46 @@ You upload the image to GitHub, and GitHub builds a website where anyone can zoo
 detail, or embed it in their own page. The picture is also published as [IIIF](https://iiif.io), the standard
 that museum and library viewers such as Mirador and Universal Viewer read.
 
-You need a free GitHub account. Everything below happens in your web browser.
+You need a free GitHub account, and nothing else: everything below happens in your web browser.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="engine/artwork/demo-dark.png">
+  <img src="engine/artwork/demo.png" alt="The demo site: a picture of concentric rings in a zoomable viewer, its size below it, and the links to share, cite, use and download it">
+</picture>
+
+*The [demo site](https://gjhilton.github.io/whatiiif-demo/), light or dark to match how you are reading this.*
 
 ## What you get
 
-For people looking at your picture:
+### For people looking at your picture
 
-- Zoom from the whole picture down to every pixel, in [OpenSeadragon](https://openseadragon.github.io) or
-  [Mirador](https://projectmirador.org); they can switch between the two.
-- A link to exactly the part they have zoomed into, to share.
-- Code to put the zoomable picture into a blog post or another website. It fits narrow screens and, in
-  OpenSeadragon, lets readers scroll on past it.
-- Downloads of the full-size JPEG and of your original file, each with its size (you can switch either off).
-- Your texts in every language you write them in. Visitors see their own and can switch.
-- A light page, or a dark one if their computer is set to dark mode. It works on phones, and shows the picture
-  without JavaScript.
-- Alternative text for people who cannot see the picture.
-- Links shared on social media and in chat apps show the picture, its title and summary.
+| Feature | What it means |
+|---|---|
+| **Deep zoom** | From the whole picture down to every pixel, in [OpenSeadragon](https://openseadragon.github.io) or [Mirador](https://projectmirador.org). They can switch between the two. |
+| **Links to details** | A link to exactly the part they have zoomed into. In OpenSeadragon, whoever opens it sees that part outlined for a moment. |
+| **Embedding** | Code that puts the zoomable picture into a blog post or another website. It fits narrow screens and, in OpenSeadragon, lets readers scroll on past it. |
+| **Citing** | A citation of the view on screen: who made the picture and when, its title, credit and link, and the day it was viewed. |
+| **Downloads** | The view on screen as a JPEG, the full-size JPEG, and your original file, each with its size. You can switch off the last two. |
+| **Real size** | A scale bar in OpenSeadragon, if you give the size of the original. |
+| **Their language** | Your texts in every language you write them in. Visitors see their own and can switch. |
+| **Light or dark** | Black on white, or white on black if their computer is set to dark mode; or your own colours. |
+| **Any screen, and paper** | Works on phones and in Safari. Printed, it shows the view on screen, the details and the citation. Without JavaScript, it still shows the picture. |
+| **Accessibility** | Alternative text for people who cannot see the picture, and every page checked automatically against the WCAG 2.1 AA guidelines. |
+| **Link previews** | Links shared on social media and in chat apps show the picture, its title and summary. Search engines are told its credit and licence. |
 
-For you:
+### For you
 
-- No server and no cost: GitHub builds the site and hosts it.
-- Upload a TIFF, PNG, JPEG, WebP, AVIF or GIF of up to 2 GB in the browser ([Large pictures](#large-pictures) shows how). If the
-  site would be too big for GitHub Pages, the full-size JPEG is left out, and if need be the tiles are made at a lower
-  JPEG quality, to make room.
-- Photos are turned the right way up and their colours kept true. The camera and location details are left out.
-- A title, summary, credit, licence and any other details you like, and a description that can link to parts of the
-  picture.
-- Your own colours, if you want them.
-- A mistake is explained in a sentence at the top of the page of the build that found it.
-- Improvements to whatiiif arrive as a pull request for you to merge. Your picture and settings are never touched.
+| Feature | What it means |
+|---|---|
+| **Free** | No server and no cost: GitHub builds the site and hosts it. |
+| **All in the browser** | Upload a TIFF, PNG, JPEG, WebP, AVIF or GIF, of up to 2 GB ([Large pictures](#large-pictures) shows how). |
+| **A settings helper** | A form on your site that writes your settings for you, and checks them as the build will. |
+| **Big pictures fit** | If the site would be too big for GitHub Pages, the full-size JPEG is left out and, if need be, the tiles are made at a lower JPEG quality, to make room. |
+| **Photos handled with care** | Turned the right way up, their colours kept true, and the camera's and location details left out. |
+| **Your words** | A title, summary, creator, date, credit, licence, real size and any other details you like, and a description that can link to parts of the picture. |
+| **Plain-English mistakes** | A mistake is explained in a sentence at the top of the page of the build that found it, and so is anything worth a look. |
+| **Updates** | Improvements arrive by themselves, or as a pull request for you to merge. Your picture and settings are never touched. |
+| **IIIF** | The picture is published as a [IIIF](https://iiif.io) image service and manifest, so it opens in any IIIF viewer. |
 
 ## Make your site
 
@@ -57,7 +67,9 @@ The browser uploads files of up to 25 MB. For a bigger picture, see [Large pictu
 
 The easiest way is your site's **settings helper**, at `https://YOUR-USERNAME.github.io/YOUR-REPOSITORY/settings.html`.
 Fill in the form, copy what it makes, and paste it over `content/whatiiif.toml` on GitHub: the helper links to the
-file, and checks everything as the build will.
+file, and checks everything as the build will. It starts from your site's settings as they are.
+
+![The settings helper: the form on the left, and on the right the whatiiif.toml it writes, ready to copy](engine/artwork/settings.png)
 
 Or edit the file yourself: open `content/whatiiif.toml`, click the pencil icon to edit it, and fill in the lines you
 want. Remove the `#` at the start of each line you use:
@@ -82,7 +94,8 @@ Click **Commit changes** and the site rebuilds itself. For a longer description,
   `description.cy.md` next to `description.md`. Visitors see their own language and can switch.
 - **rights** must be a Creative Commons or RightsStatements.org address; the address of the licence's own page,
   copied from your browser, is fine. Put any other terms in `attribution`.
-- **dimensions**, the real size of the original, gives the picture a scale bar.
+- **creator** and **date** go into the details and the citation; **dimensions**, the real size of the original, gives
+  the picture a scale bar.
 - **Colours:** the page is black on white, or white on black for visitors whose computer is set to dark mode. To
   use your own colours in both, add a section like this (any CSS colour works):
 
@@ -101,8 +114,12 @@ Under the picture on your site you will find, ready to copy:
 
 - **Link to this view**: zoom into a detail first, and the link opens on exactly that.
 - **Embed on a web page**: code that puts the zoomable picture into a blog post or another website.
+- **Cite this view**: a citation of the view on screen, with that link in it.
 - **Manifest URL**: paste it into any IIIF viewer, or use the links to open the picture in Mirador or Universal
   Viewer.
+
+Under **Download** are the view on screen as a JPEG and, unless you switch them off, the full-size JPEG and the
+original file.
 
 ## Change the picture
 
@@ -138,7 +155,8 @@ release:
 2. In the tag box, type `picture` and choose to create it as a new tag. Give the release any title.
 3. Drop the picture into the box at the bottom, wait for it to upload, and click **Publish release**.
 4. On the release's page, right-click the picture's name under **Assets** and copy the link.
-5. Open `content/whatiiif.toml`, add a line `picture = "…"` with that link between the quotes, and commit it.
+5. Open `content/whatiiif.toml`, add a line `picture = "…"` with that link between the quotes, and commit it. (The
+   settings helper has a box for it, too.)
 
 The site is built from the picture at the link, which is also where visitors download the original. To change the
 picture, add the new one to the release under a different file name, and change the link to it: committing the new

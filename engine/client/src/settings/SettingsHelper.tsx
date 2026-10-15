@@ -248,7 +248,7 @@ export function SettingsHelper({ initial, editUrl, title }: { initial?: Settings
         <aside className="settings-file">
           <h2>Your whatiiif.toml</h2>
           {problem ? <p className="problem" role="alert">{problem}</p> : <p className="hint">Ready to use.</p>}
-          <textarea readOnly value={toml} aria-label="whatiiif.toml" rows={16} onFocus={(event) => event.currentTarget.select()} />
+          <textarea readOnly value={toml} aria-label="whatiiif.toml" rows={16} wrap="off" onFocus={(event) => event.currentTarget.select()} />
           <button
             type="button"
             onClick={() => navigator.clipboard.writeText(toml).then(() => setCopied(true), () => {})}

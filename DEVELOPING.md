@@ -73,7 +73,8 @@ npm run test:visual  # the page against reviewed screenshots
   `engine/test/visual/screenshots` (one set per operating system, since fonts differ; CI checks the Linux set). After
   a deliberate change to how the page looks, run `npm run test:visual -- --update-snapshots`, look at every new
   picture, and commit them. For the Linux set, push and take them from the failed CI run's `visual-differences`
-  artifact.
+  artifact. Then remake the README's screenshots of the demo and the settings helper, in `engine/artwork`, with
+  `node engine/test/support/readme-screenshots.js`.
 - `live/`: tests on real GitHub (below).
 - `support/`: what the tests share: test images, temporary folders, the IIIF schema, and the harness that copies the
   template, runs the Deploy workflow's steps and opens a site in a browser.
