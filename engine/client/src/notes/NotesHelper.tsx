@@ -639,9 +639,7 @@ function Status({
           <a className="button" href="./?viewer=openseadragon&notes-draft" target="whatiiif-preview" onClick={onPreview}>
             Preview them on your site
           </a>{' '}
-          <span className="hint">
-            Its page, with these notes and their tour, as visitors will see them. (Mirador lists the notes your site has until these are on it.)
-          </span>
+          <span className="hint">Its page, with these notes and their tour, as visitors will see them.</span>
         </p>
       )}
     </div>
