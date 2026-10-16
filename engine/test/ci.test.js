@@ -439,7 +439,7 @@ const releaseScript = join(template, '.github/release.sh');
  * and a `gh` that makes releases there and answers for a merged pull request's description. `change` makes main's
  * next commit.
  */
-async function released(change = async () => {}) {
+async function released(change = async () => {}, scriptEnv = {}) {
   const origin = await tempDir('origin');
   await git(origin, ['init', '-q', '--bare']);
   const here = await tempDir('here');
@@ -477,7 +477,7 @@ esac
   await chmod(join(bin, 'gh'), 0o755);
   await writeFile(log, '');
   const script = (...args) =>
-    run('bash', [releaseScript, ...args], { cwd: here, env: { PATH: `${bin}:${process.env.PATH}`, GITHUB_REPOSITORY: 'someone/whatiiif' } });
+    run('bash', [releaseScript, ...args], { cwd: here, env: { PATH: `${bin}:${process.env.PATH}`, GITHUB_REPOSITORY: 'someone/whatiiif', ...scriptEnv } });
   const tagged = async (tag) => (await run('git', ['rev-parse', '-q', '--verify', `${tag}^{commit}`], { cwd: origin })).stdout.trim();
   return { here, base, script, tagged, head: (await git(here, ['rev-parse', 'HEAD'])).stdout.trim(), calls: () => read(log), notes: () => read(`${log}.notes`) };
 }
@@ -510,6 +510,25 @@ test('a pull request that changes what sites get must raise engine/VERSION; one 
   const backwards = await lowered.script('check', lowered.base);
   assert.equal(backwards.code, 1);
   assert.match(backwards.stdout, /::error title=engine\/VERSION must go up::1\.0\.9 is not above 1\.1\.0/);
+
+  for (const [from, to] of [['1.2.0-rc.1', '1.2.0'], ['1.9.0', '1.10.0'], ['1.2.0-rc.1', '1.2.0-rc.2']]) {
+    const promoted = await released(async (dir) => {
+      await raise(from)(dir);
+      await commit(dir, from);
+      await git(dir, ['tag', `v${from}`]);
+      await raise(to)(dir);
+    });
+    const base = (await git(promoted.here, ['rev-parse', 'HEAD~1'])).stdout.trim();
+    const passed = await promoted.script('check', base);
+    assert.equal(passed.code, 0, `${from} to ${to}: ${passed.stdout}`);
+  }
+
+  for (const odd of ['1.2', 'v1.2.0', '1.2.0.0', 'one']) {
+    const malformed = await released(raise(odd));
+    const refused = await malformed.script('check', malformed.base);
+    assert.equal(refused.code, 1, odd);
+    assert.match(refused.stdout, /::error title=engine\/VERSION is not a version::/, odd);
+  }
 });
 
 test('merging a new engine/VERSION releases it: the tag, the GitHub release with the pull request’s words, and v1, which sites call', async () => {
@@ -529,6 +548,63 @@ test('merging a new engine/VERSION releases it: the tag, the GitHub release with
   assert.equal(again.code, 0);
   assert.match(again.stdout, /1\.2\.0 is released already\./);
   assert.equal((await merged.calls()).match(/release create/g).length, 1, 'released once');
+});
+
+test('versions merged one after another are each released, at the commit that made them, however few Live runs there were', async () => {
+  const merged = await released(async (dir) => {
+    await changeSites(dir);
+    await raise('1.2.0')(dir);
+    await commit(dir, '1.2.0');
+    await writeFile(join(dir, 'engine/lib/build.js'), 'better still\n');
+    await raise('1.3.0')(dir);
+  });
+  const first = (await git(merged.here, ['rev-parse', 'HEAD~1'])).stdout.trim();
+  assert.equal((await merged.script('release')).code, 0);
+  assert.equal(await merged.tagged('v1.2.0'), first);
+  assert.equal(await merged.tagged('v1.3.0'), merged.head);
+  assert.equal(await merged.tagged('v1'), merged.head);
+});
+
+test('a full release followed in the same Live run by a pre-release still moves v1 to the full release', async () => {
+  const merged = await released(async (dir) => {
+    await changeSites(dir);
+    await raise('1.2.0')(dir);
+    await commit(dir, '1.2.0');
+    await raise('1.3.0-rc.1')(dir);
+  });
+  const full = (await git(merged.here, ['rev-parse', 'HEAD~1'])).stdout.trim();
+  assert.equal((await merged.script('release')).code, 0);
+  assert.equal(await merged.tagged('v1.2.0'), full);
+  assert.equal(await merged.tagged('v1.3.0-rc.1'), merged.head);
+  assert.equal(await merged.tagged('v1'), full);
+});
+
+test('a major version’s tag already on a later release is never moved back', async () => {
+  const merged = await released(raise('1.2.0'));
+  await raise('1.3.0')(merged.here);
+  await commit(merged.here, '1.3.0, released by hand');
+  await git(merged.here, ['push', '-q', '-f', 'origin', 'HEAD:refs/tags/v1']);
+  const later = (await git(merged.here, ['rev-parse', 'HEAD'])).stdout.trim();
+  await git(merged.here, ['reset', '-q', '--hard', 'HEAD~1']);
+  assert.equal((await merged.script('release')).code, 0);
+  assert.equal(await merged.tagged('v1.2.0'), merged.head);
+  assert.equal(await merged.tagged('v1'), later);
+});
+
+test('a release left half made, its tag made but v1 not moved, is finished when Live runs again', async () => {
+  const merged = await released(raise('1.2.0'));
+  await git(merged.here, ['push', '-q', 'origin', 'HEAD:refs/tags/v1.2.0']); // released, but v1 left behind
+  assert.equal((await merged.script('release')).code, 0);
+  assert.equal(await merged.tagged('v1'), merged.head);
+  assert.doesNotMatch(await merged.calls(), /release create/, 'not released twice');
+});
+
+test('releases are made from main alone: Live run by hand on another branch releases nothing', async () => {
+  const branch = await released(raise('1.2.0'), { GITHUB_REF: 'refs/heads/an-idea' });
+  const result = await branch.script('release');
+  assert.equal(result.code, 0);
+  assert.match(result.stdout, /Releases are made from main: this is refs\/heads\/an-idea\./);
+  assert.equal(await branch.tagged('v1.2.0'), '');
 });
 
 test('a pre-release is released as one, and leaves v1 on the last full release', async () => {
@@ -565,6 +641,8 @@ test('releasing runs first in Live, so the demos and checks see the release; pul
   assert.match(version, /\n {2}pull_request:\n/);
   assert.match(version, /run: bash \.github\/release\.sh check "origin\/\$\{\{ github\.base_ref \}\}"/);
   assert.match(await workflow('dependencies.yml'), /engine\/VERSION/, 'an update of the packages sites get is a new version too');
+  // The tests of .github/release.sh are in engine/test: CI runs them when it changes too.
+  assert.equal((await workflow('ci.yml')).match(/paths: \[[^\]]*'\.github\/\*\*'/g)?.length, 2);
 });
 
 test('the trials in new repositories made from the template are run by hand, not by Live, which would need a token that may make and delete repositories', async () => {
