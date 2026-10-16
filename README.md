@@ -31,7 +31,7 @@ You need a free GitHub account, and nothing else: everything below happens in yo
 | **Their language** | Your texts in every language you write them in. Visitors see their own and can switch. |
 | **Light or dark** | Black on white, or white on black if their computer is set to dark mode; or your own colours. |
 | **Any screen, and paper** | Works on phones and in Safari. Printed, it shows the view on screen, the details and the citation. Without JavaScript, it still shows the picture. |
-| **Accessibility** | Alternative text for people who cannot see the picture, and every page checked automatically against the WCAG 2.1 AA guidelines. |
+| **Accessibility** | Alternative text for people who cannot see the picture, and every page checked automatically against the WCAG 2.2 AA guidelines. |
 | **Link previews** | Links shared on social media and in chat apps show the picture, its title and summary. Search engines are told its credit and licence. |
 
 ### For you

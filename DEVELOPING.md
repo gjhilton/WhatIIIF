@@ -77,7 +77,7 @@ npm run test:visual  # the page against reviewed screenshots
   github.com, through Git LFS, in two languages, and with mistakes. Each runs what the Deploy workflow runs and opens
   the site in both viewers, failing if either asks for a file that was not published. They run in Chromium;
   `safari.e2e.js` repeats the journeys most likely to differ in WebKit, on a Mac and on an iPhone, and
-  `accessibility.e2e.js` checks every state of the page against WCAG 2.1 AA with axe. `check-site.js` checks any
+  `accessibility.e2e.js` checks every state of the page against WCAG 2.2 AA with axe. `check-site.js` checks any
   built or live site the same way.
 - `visual/`: the page, in each state a visitor can meet, against reviewed screenshots in
   `engine/test/visual/screenshots` (one set per operating system, since fonts differ; CI checks the Linux set). After
