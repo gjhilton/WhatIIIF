@@ -20,9 +20,10 @@ Give it [WhatIIIF for LLMs](docs/FOR-LLMS.md), and it can make your site for you
 - [Owner's manual](#owners-manual)
   - [Getting started](#getting-started)
   - [Common tasks](#common-tasks): [describe your picture](#describe-your-picture), [share it](#share-it),
-    [change the picture](#change-the-picture), [keep up to date](#keep-up-to-date)
+    [change the picture](#change-the-picture), [turn off "Published with WhatIIIF"](#turn-off-published-with-whatiiif),
+    [keep up to date](#keep-up-to-date)
   - [Accessibility](#accessibility)
-  - [Advanced options](#advanced-options): [languages, colours and the footer](#languages-colours-and-the-footer),
+  - [Advanced options](#advanced-options): [languages and colours](#languages-and-colours),
     [notes on the picture, and a tour](#notes-on-the-picture-and-a-tour), [large pictures](#large-pictures)
   - [Troubleshooting](#troubleshooting)
 - [FAQ](#faq)
@@ -143,8 +144,8 @@ Click **Commit changes** and the site rebuilds itself. For a longer description,
 - **creator** and **date** go into the details and the citation; **dimensions**, the real size of the original, gives
   the picture a scale bar.
 - Every setting is explained in [the template's own copy of the file](https://github.com/gjhilton/WhatIIIF/blob/main/content/whatiiif.toml),
-  which may list settings that are newer than your copy. Other languages, your own colours and the footer are under
-  [Advanced options](#languages-colours-and-the-footer).
+  which may list settings that are newer than your copy. Other languages and your own colours are under
+  [Advanced options](#languages-and-colours).
 
 #### Share it
 
@@ -165,6 +166,16 @@ Delete the old file from the `content` folder, then upload the new one. The site
 uploading the new one first stops the build until the old one is gone. For a picture given by its link, see
 [Large pictures](#large-pictures). If you have [notes](#notes-on-the-picture-and-a-tour), their links point at parts
 of the old picture, so copy them again from the new one; the build stops if one no longer fits.
+
+#### Turn off "Published with WhatIIIF"
+
+A small line at the foot of your site's page says "Published with WhatIIIF" and which version, linking to WhatIIIF.
+It is optional. To leave it out, untick it in the settings helper, or add this to `content/whatiiif.toml`:
+
+```toml
+[publish]
+footer = false
+```
 
 #### Keep up to date
 
@@ -228,9 +239,9 @@ The words are yours, and for someone who cannot see the picture they are the pic
 
 ### Advanced options
 
-#### Languages, colours and the footer
+#### Languages and colours
 
-All three are settings in `content/whatiiif.toml`, and in the settings helper.
+Both are settings in `content/whatiiif.toml`, and in the settings helper.
 
 - **Other languages:** write any text like `title = { en = "Harbour", cy = "Harbwr" }`, and add
   `description.cy.md` next to `description.md`. Visitors see their own language and can switch.
@@ -242,9 +253,6 @@ All three are settings in `content/whatiiif.toml`, and in the settings helper.
   paper = "#fdf6e3" # the background
   ink = "#222222"   # text, lines, and the button that is selected
   ```
-
-- **The footer:** a small line at the foot of the page says "Published with WhatIIIF" and which version, linking to
-  WhatIIIF. To leave it out, write `footer = false` under `[publish]`, or untick it in the settings helper.
 
 #### Notes on the picture, and a tour
 
@@ -403,6 +411,11 @@ so keep your own copy of your picture.
 ### How do I take my site down?
 
 Delete the repository: **Settings → General → Danger Zone → Delete this repository**. The site goes with it.
+
+### Do I have to credit WhatIIIF on my site?
+
+No. The line at the foot of the page that says "Published with WhatIIIF" is optional: see
+[Turn off "Published with WhatIIIF"](#turn-off-published-with-whatiiif).
 
 ### Where can I get help, or help improve WhatIIIF?
 
