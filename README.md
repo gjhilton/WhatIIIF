@@ -31,7 +31,7 @@ You need a free GitHub account, and nothing else: everything below happens in yo
 | **Their language** | Your texts in every language you write them in. Visitors see their own and can switch. |
 | **Light or dark** | Black on white, or white on black if their computer is set to dark mode; or your own colours. |
 | **Any screen, and paper** | Works on phones and in Safari. Printed, it shows the view on screen, the details and the citation. Without JavaScript, it still shows the picture. |
-| **Accessibility** | Alternative text for people who cannot see the picture, and every page checked automatically against the WCAG 2.2 AA guidelines. |
+| **Accessibility** | Alternative text for people who cannot see the picture, and every page checked automatically against the WCAG 2.2 AA guidelines ([Accessibility](#accessibility) says more). |
 | **Link previews** | Links shared on social media and in chat apps show the picture, its title and summary. Search engines are told its credit and licence. |
 
 ### For you
@@ -182,6 +182,48 @@ together.
 
 The notes are also written into the manifest, as IIIF annotations, so other IIIF viewers can show them: Mirador opens
 with its own list of them, where there is room beside the picture.
+
+## Accessibility
+
+Your site is made to work for people who use a screen reader, who use a keyboard rather than a mouse, or who have set
+their computer to reduce motion.
+
+- **Screen readers** are told what the picture shows, in your alternative text. Everything else is ordinary text: the
+  title, the details, the description and the notes, each marked with its language so that it is pronounced properly.
+  On the tour, each note is read out as the viewer moves to it.
+- **The keyboard** reaches everything. The picture's buttons zoom in and out, show the whole picture and fill the
+  screen; on the picture itself, the arrow keys move it, + and − zoom, and 0 shows it whole. Starting the tour moves
+  the keyboard into it, and Escape ends it. The settings and notes helpers need no mouse either: a note's part can be
+  the part of the picture in view, rather than one drawn round.
+- **Less movement:** if a visitor's computer is set to reduce motion, the page jumps to a note rather than scrolling
+  to it, and an outline on the picture goes without fading.
+- **Without JavaScript**, the page still shows the whole picture with its alternative text, its title and summary, and
+  links to the manifest and the downloads.
+
+**How it is checked.** Every change to WhatIIIF is checked by [axe](https://github.com/dequelabs/axe-core) against the
+[WCAG 2.2](https://www.w3.org/TR/WCAG22/) guidelines, levels A and AA, in every state a visitor can meet: the page in
+either viewer, in dark mode, in another language, embedded, without JavaScript, on its tour and as a preview of notes,
+and the settings and notes helpers. Other tests check what axe cannot: that a screen reader is told what the picture
+shows, that the keyboard reaches the picture's buttons before the numbers of its notes, and that the tour takes the
+keyboard and gives it back.
+
+**What that does not cover.** Automatic checks find many problems, but not all: only a person can tell whether a page
+makes sense read aloud. WhatIIIF has not yet been audited by one, so it makes no formal claim to meet WCAG. If something
+gets in your way, or your visitors', please [open an issue](https://github.com/gjhilton/WhatIIIF/issues).
+
+**What you can do.** The words are yours, and for someone who cannot see the picture they are the picture:
+
+- **Write `alt`:** what the picture shows, in a sentence or two, as you would say it to someone on the phone. Without
+  it, a screen reader is told only the title, or if there is none, the picture's file name.
+- **Put the rest in `description.md`:** whatever else someone who cannot see the picture would want to know, such as
+  the words on a map, or a transcription of a manuscript page.
+- **Say where, in notes:** a note's part is marked on the picture, which not everyone can see, so say in words where it
+  is too: "In the top left corner, the lighthouse …".
+- **Name your language** if it is not English, with `language` in `content/whatiiif.toml` (`language = "fr"`, say).
+  Otherwise your words are marked as English, and read out with English pronunciation.
+- **Check your own colours:** the checks above use black on white. If you choose your own `[colours]`, make sure the
+  text stands out from the background: WCAG asks for a contrast of at least 4.5 to 1, which a
+  [contrast checker](https://webaim.org/resources/contrastchecker/) will measure for you.
 
 ## Change the picture
 
