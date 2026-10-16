@@ -959,3 +959,12 @@ test('after each change, the Live workflow publishes the template to both demos,
   assert.match(text, /\n {2}release:\n {4}types: \[published\]/);
   assert.match(text, /\n {2}schedule:\n {4}- cron: /);
 });
+
+test('a release made by hand, perhaps a fix to an older line, starts Live on main: the demos and the checks are of main, not of its tag', async () => {
+  const text = await workflow('live.yml');
+  const checkouts = text.match(/- uses: actions\/checkout@v\d+\n/g).length;
+  const ofMain = text.match(/- uses: actions\/checkout@v\d+\n {8}with:\n(?: {10}\S.*\n)*? {10}ref: \$\{\{ github\.event_name == 'release' && 'main' \|\| '' \}\}/g)?.length;
+  assert.equal(ofMain, checkouts, 'every job checks out main when a release starts it');
+  // The screenshots' commit names the commit of main they were made from, not the release's.
+  assert.doesNotMatch(text, /GITHUB_SHA/);
+});

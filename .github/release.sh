@@ -184,7 +184,7 @@ released() {
     exit 1
   fi
   if ! prerelease "$now" && [[ "$(git rev-parse "$(major "$now")^{commit}" 2> /dev/null)" != "$(git rev-parse "$tag^{commit}")" ]]; then
-    echo "::error title=$(major "$now") is not on $tag::Sites call the shared steps at $(major "$now"), so it must point at the latest release, $tag."
+    echo "::error title=$(major "$now") is not on $tag::Sites call the shared steps at $(major "$now"), so it must point at the release of main's engine/VERSION, $tag."
     exit 1
   fi
   differ=$(changed "$tag")
