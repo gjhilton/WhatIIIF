@@ -158,7 +158,8 @@ names the repository to delete by hand. The trials:
 All of it is `.github/release.sh`. Run `npm run test:live` by hand before merging a new version, and the update
 trial after. The weekly dependency update raises the patch number itself when the packages sites install change, and
 puts what whoever merges it needs to know in a comment, as its description becomes the release's notes.
-`release.yml` moves the major version's tag for a release made by hand, which should not be needed.
+`release.yml` moves the major version's tag for a release made by hand, which should not be needed, by the same rule:
+never back from a later release, so a fix to an older line (1.1.2 after 1.2.0) leaves sites on the latest.
 
 `main` has a ruleset: it takes a commit only once the **Version** check has passed on it, on a branch up to date with
 `main`. So two pull requests that each raise `engine/VERSION` to the same number cannot both be merged: the second
