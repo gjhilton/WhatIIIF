@@ -20,9 +20,10 @@ you need to make them a site and get it right. (People doing it by hand want the
 With `gh` signed in as the user (`gh auth status`):
 
 ```sh
+owner=$(gh api user --jq .login)
 gh repo create my-picture --template gjhilton/WhatIIIF --public   # public: GitHub Pages is free for public repositories
 # GitHub copies the template a few seconds after making the repository.
-until gh api repos/OWNER/my-picture/contents/engine/VERSION --silent 2> /dev/null; do sleep 5; done
+until gh api "repos/$owner/my-picture/contents/engine/VERSION" --silent 2> /dev/null; do sleep 5; done
 gh repo clone my-picture && cd my-picture
 
 gh api -X POST "repos/{owner}/{repo}/pages" -f build_type=workflow   # GitHub Pages, published by Actions
@@ -36,7 +37,7 @@ gh run watch --exit-status "$(gh run list --workflow Deploy --commit "$(git rev-
 ```
 
 `gh run list` can take a few seconds to show the new run. When the run ends green, the site is at
-`https://OWNER.github.io/my-picture/` (OWNER lower-cased). Without a terminal, walk the user through the
+`https://$owner.github.io/my-picture/`, the owner lower-cased. Without a terminal, walk the user through the
 [Quickstart](QUICKSTART.md) instead: five steps in the browser.
 
 ## The picture

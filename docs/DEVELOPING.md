@@ -56,6 +56,9 @@ as well as in `engine/UPSTREAM`.
 
 ## Working on it
 
+The documents: the [README](../README.md), the manual for people with a site; and in `docs/`, this page, the
+[Quickstart](QUICKSTART.md), and [WhatIIIF for LLMs](FOR-LLMS.md), for coding assistants making a site for someone.
+
 Needs Node 24 or newer.
 
 ```sh
@@ -71,8 +74,9 @@ npm run test:visual  # the page against reviewed screenshots
 
 `engine/test/` holds:
 
-- `*.test.js`, run by `npm test`: the engine, the page's own logic (Node runs its TypeScript as it is), and the
-  workflows' scripts in `engine/ci/`, run against a stand-in for GitHub's `gh`.
+- `*.test.js`, run by `npm test`: the engine, the page's own logic (Node runs its TypeScript as it is), the
+  workflows' scripts in `engine/ci/` and `.github/release.sh`, run against a stand-in for GitHub's `gh`, and the
+  documents (`docs.test.js`): every link between the README and `docs/`, and to a heading in one, goes somewhere.
 - `e2e/`: repositories made from the template, with images committed the way people commit them: uploaded on
   github.com, through Git LFS, in two languages, and with mistakes. Each runs what the Deploy workflow runs and opens
   the site in both viewers, failing if either asks for a file that was not published. They run in Chromium;
