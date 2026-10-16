@@ -13,7 +13,7 @@ import { parseConfig } from '../../lib/config.js';
 import { readNotesSource } from '../../lib/notes.js';
 import { inspect, makeImage, makePhonePhoto, makeVariant } from '../support/fixtures.js';
 import { schemaProblems, schemaUnavailable } from '../support/schema.js';
-import { browse, commit, deploy, git, repo as template, run, templateCopy, until, zoomToFullResolution } from '../support/harness.js';
+import { browse, clickToClose, commit, deploy, git, repo as template, run, templateCopy, until, zoomToFullResolution } from '../support/harness.js';
 import { tempDir } from '../support/tmp.js';
 
 const json = async (path) => JSON.parse(await readFile(path, 'utf8'));
@@ -1173,7 +1173,7 @@ suite('a museum adds notes to its picture, which make a tour', () => {
     await page.getByRole('textbox', { name: 'Text', exact: true }).fill('');
 
     // Back to the helper closes the preview, rather than opening a second helper in it.
-    await Promise.all([preview.waitForEvent('close'), preview.getByRole('link', { name: 'Back to the notes helper' }).click()]);
+    await clickToClose(preview, preview.getByRole('link', { name: 'Back to the notes helper' }));
 
     // Starting again while a part is being drawn stops the drawing, which was for a note now gone.
     await page.getByRole('button', { name: 'Draw a new note’s part' }).click();
