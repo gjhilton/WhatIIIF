@@ -9,6 +9,9 @@ that museum and library viewers such as Mirador and Universal Viewer read.
 
 You need a free GitHub account, and nothing else: everything below happens in your web browser.
 
+**New here?** The [Quickstart](docs/QUICKSTART.md) puts your picture online in five steps. **Using an AI assistant?**
+Give it [WhatIIIF for LLMs](docs/FOR-LLMS.md), and it can make your site for you.
+
 ## Contents
 
 - [Brochure](#brochure)
@@ -89,6 +92,8 @@ can step through, written with your site's notes helper. Your site does not need
 ## Owner's manual
 
 ### Getting started
+
+The [Quickstart](docs/QUICKSTART.md) has these steps at their shortest.
 
 1. **Copy this template.** At the top of this page click **Use this template → Create a new repository**.
    Give it a name (it becomes part of your site's address), choose **Public**, and click **Create repository**.
@@ -184,8 +189,9 @@ their computer to reduce motion.
   screen; on the picture itself, the arrow keys move it, + and − zoom, and 0 shows it whole. Starting the tour moves
   the keyboard into it, and Escape ends it. The settings and notes helpers need no mouse either: a note's part can be
   the part of the picture in view, rather than one drawn round.
-- **Less movement:** if a visitor's computer is set to reduce motion, the page jumps to a note rather than scrolling
-  to it, and an outline on the picture goes without fading.
+- **Less movement:** if a visitor's computer is set to reduce motion, the picture goes straight to a note rather than
+  gliding there, in either viewer and in the notes helper; the page jumps rather than scrolls; and an outline on the
+  picture goes without fading.
 - **Without JavaScript**, the page still shows the whole picture with its alternative text, its title and summary, and
   links to the manifest and the downloads.
 
@@ -402,7 +408,7 @@ Delete the repository: **Settings → General → Danger Zone → Delete this re
 
 [Open an issue](https://github.com/gjhilton/WhatIIIF/issues) to ask a question or report a problem, including
 anything that gets in the way of someone using assistive technology. Working on WhatIIIF itself?
-[DEVELOPING.md](DEVELOPING.md) explains how it is built and tested.
+[docs/DEVELOPING.md](docs/DEVELOPING.md) explains how it is built and tested.
 
 ### Who made it, and what is the licence?
 
