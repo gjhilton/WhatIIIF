@@ -333,40 +333,16 @@ test('the steps copies call still run the scripts at the paths copies have alway
   assert.match(await workflow('offer-update.yml'), /run: engine\/ci\/update\.sh/);
 });
 
-test('a release made by hand moves the tag of its major version, which copies call, and only in the template', async () => {
+test('a release made by hand moves the tag of its major version, which copies call, by the rule a merged one does, and only in the template', async () => {
   const text = await workflow('release.yml');
   assert.match(text, /^# whatiiif: template only\./);
   assert.doesNotMatch(text, /\bv0\b/, 'copies call the steps at the tag of their major version, v1 for 1.x');
-  assert.match(text, /if: github\.event\.repository\.is_template/);
-  assert.match(text, /git tag -f "\$major"/);
   // A pre-release is for trying out: copies keep running the last full release.
   assert.match(text, /if: github\.event\.repository\.is_template && !github\.event\.release\.prerelease/);
-  assert.match(text, /::error title=\$major still points at the previous release::.*move it by hand/, 'a tag left behind says how to move it');
-});
-
-test('a release moves the tag of its major version, and only that: 1.0.0 moves v1, and v0 stays on the last 0.x release', async () => {
-  // The step's script, run as the workflow runs it, in a clone of a repository whose releases are tagged.
-  const text = await workflow('release.yml');
-  const [, block] = text.match(/\n {8}run: \|\n((?: {10}.*\n)+)/);
-  const script = block.replace(/^ {10}/gm, '');
-  const origin = await tempDir('origin');
-  await git(origin, ['init', '-q', '--bare']);
-  const here = await tempDir('here');
-  await git(here, ['init', '-q']);
-  await writeFile(join(here, 'a'), '0.4.0');
-  await commit(here, '0.4.0');
-  await git(here, ['tag', 'v0.4.0']);
-  await git(here, ['tag', 'v0']);
-  await writeFile(join(here, 'a'), '1.0.0');
-  await commit(here, '1.0.0');
-  await git(here, ['tag', 'v1.0.0']);
-  await git(here, ['remote', 'add', 'origin', origin]);
-  await git(here, ['push', '-q', 'origin', 'HEAD:main', '--tags']);
-  const moved = await run('bash', ['-c', script], { cwd: here, env: { TAG: 'v1.0.0' } });
-  assert.equal(moved.code, 0, moved.stderr);
-  const tagged = async (tag) => (await git(origin, ['rev-parse', `${tag}^{commit}`])).stdout.trim();
-  assert.equal(await tagged('v1'), await tagged('v1.0.0'));
-  assert.equal(await tagged('v0'), await tagged('v0.4.0'));
+  assert.match(text, /run: bash \.github\/release\.sh point "\$TAG"/);
+  assert.match(text, /TAG: \$\{\{ github\.event\.release\.tag_name \}\}/);
+  assert.match(text, /GH_TOKEN: \$\{\{ github\.token \}\}/);
+  assert.doesNotMatch(text, /git tag -f/, 'the rule is release.sh’s alone');
 });
 
 test('packages are kept up to date in the template only, and checked before they are offered', async () => {
@@ -847,6 +823,63 @@ test('releases are made from main alone: Live run by hand on another branch rele
   assert.equal(result.code, 0);
   assert.match(result.stdout, /Releases are made from main: this is refs\/heads\/an-idea\./);
   assert.equal(await branch.tagged('v1.2.0'), '');
+});
+
+/** In a repository made by `released`, a release of `version` made by hand, on a commit of its own off 1.1.0's. */
+async function byHand(at, version) {
+  await git(at.here, ['checkout', '-q', '--detach', at.base]);
+  await raise(version)(at.here);
+  await commit(at.here, version);
+  await git(at.here, ['push', '-q', 'origin', `HEAD:refs/tags/v${version}`]);
+  await at.releaseMade(`v${version}`);
+  const made = await sha(at.here, 'HEAD');
+  await git(at.here, ['checkout', '-q', '-']);
+  return made;
+}
+
+test('a release made by hand moves its major version’s tag forward, but never back from a later release, nor to a pre-release', async () => {
+  const merged = await released(raise('1.2.0'));
+  assert.equal((await merged.script('release')).code, 0); // 1.2.0, released on merging, and v1 on it
+  const point = async (version) => {
+    const result = await merged.script('point', `v${version}`);
+    assert.equal(result.code, 0, `${version}: ${result.stdout}${result.stderr}`);
+  };
+
+  await byHand(merged, '1.1.2'); // a fix to the line before
+  await point('1.1.2');
+  assert.equal(await merged.tagged('v1'), merged.head, 'v1 stays on 1.2.0');
+
+  const later = await byHand(merged, '1.3.0');
+  await point('1.3.0');
+  assert.equal(await merged.tagged('v1'), later);
+
+  await byHand(merged, '1.4.0-rc.1');
+  await point('1.4.0-rc.1');
+  assert.equal(await merged.tagged('v1'), later, 'a pre-release moves nothing');
+
+  const two = await byHand(merged, '2.0.0');
+  await point('2.0.0');
+  assert.equal(await merged.tagged('v2'), two);
+  assert.equal(await merged.tagged('v1'), later, 'only its own major version’s tag');
+});
+
+test('when the major version’s tag cannot be moved, the run fails and says how to move it by hand', async () => {
+  const merged = await released(raise('1.2.0'));
+  await merged.releaseMade('v1.2.0');
+  await git(merged.here, ['push', '-q', 'origin', 'HEAD:refs/tags/v1.2.0']);
+  const realGit = (await run('bash', ['-c', 'command -v git'])).stdout.trim();
+  await writeFile(
+    join(merged.bin, 'git'),
+    `#!/bin/bash
+if [ "$1" = push ] && [[ " $* " == *" refs/tags/v1 "* ]]; then echo 'remote: refusing' >&2; exit 1; fi
+exec "${realGit}" "$@"
+`,
+  );
+  await chmod(join(merged.bin, 'git'), 0o755);
+  const result = await merged.script('point', 'v1.2.0');
+  assert.notEqual(result.code, 0);
+  assert.match(result.stdout, /::error title=v1 still points at the previous release::.*move it by hand: .*git tag -f v1 v1\.2\.0/);
+  assert.equal(await merged.tagged('v1'), merged.base);
 });
 
 test('a pre-release is released as one, and leaves v1 on the last full release', async () => {

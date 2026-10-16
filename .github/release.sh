@@ -8,6 +8,8 @@
 #                                   (v1 for 1.x), which sites call the shared steps at, at the latest
 #   .github/release.sh released     (main) fails unless everything sites get is in the release of engine/VERSION, and
 #                                   the tag of its major version points at it
+#   .github/release.sh point vX.Y.Z (a release made by hand, release.yml) points the tag of its major version at it, by
+#                                   the rule release does: not for a pre-release, and never back from a later release
 #   .github/release.sh next         the next patch version, which the weekly package update raises engine/VERSION to
 #   .github/release.sh changed BASE what sites get that differs between BASE and the files as they are, on one line
 #
@@ -111,8 +113,8 @@ release_one() {
 }
 
 # Points the tag sites call, of version $1's major version, at its release, unless that is a pre-release, is not
-# released, or the tag is on a later release already. (A release made with the workflow's own token starts no
-# workflow, so release.yml, which does this for a release made by hand, does not.)
+# released, or the tag is on a later release already. For a release made on merging, release does it: one made with
+# the workflow's own token starts no workflow. For one made by hand, release.yml does, with point.
 point_major() {
   local now=$1 tag at
   tag=$(major "$now")
@@ -126,8 +128,17 @@ point_major() {
     if above "$(version "$tag")" "$now"; then return; fi
   fi
   git tag -f "$tag" "v$now^{commit}" > /dev/null
-  git push -q -f origin "refs/tags/$tag"
+  if ! git push -q -f origin "refs/tags/$tag"; then
+    echo "::error title=$tag still points at the previous release::Copies run the steps at $tag, so move it by hand: git fetch --tags && git tag -f $tag v$now && git push -f origin refs/tags/$tag"
+    exit 1
+  fi
   echo "$tag points at $now."
+}
+
+point() {
+  local now=${1#v}
+  valid "$now"
+  point_major "$now"
 }
 
 release() {
