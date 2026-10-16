@@ -391,6 +391,15 @@ test("once both demos are up, the README's screenshots of them are remade on a M
   assert.match(job, /git push -q origin HEAD:main/);
 });
 
+test('the screenshots, pushed straight to main, pass the Version check main requires of every commit, which GitHub runs for no push a workflow makes', async () => {
+  const job = (await workflow('live.yml')).slice((await workflow('live.yml')).indexOf('\n  screenshots:'));
+  assert.match(job, /^ {6}statuses: write\b/m);
+  const steps = ['bash .github/release.sh check origin/main', 'git push -q -f origin HEAD:refs/heads/readme-screenshots', '-f context=version', 'git push -q origin HEAD:main'];
+  const at = steps.map((step) => job.indexOf(step));
+  assert.ok(at.every((where, i) => where > 0 && (i === 0 || where > at[i - 1])), `checked, its commit given to GitHub, marked as checked, then pushed: ${at}`);
+  assert.match(job, /git push -q origin :refs\/heads\/readme-screenshots/, 'the branch it was given on is gone again');
+});
+
 /**
  * A demo made from the template, as a bare repository holding only its picture, and a `gh` that answers for its
  * Deploy run: watching it is cut off by the network the first time, while the run goes on; watched again, it

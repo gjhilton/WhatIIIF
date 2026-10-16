@@ -113,7 +113,8 @@ day. Copies of the template have no
   tried by the live trials, by hand. It pushes with a deploy key for each demo alone, stored as the
   `DEMO_DEPLOY_KEY` and `NOTES_DEMO_DEPLOY_KEY` secrets.
 - **screenshots:** once both demos are up, remakes the README's screenshots of them on a Mac
-  (`engine/test/support/readme-screenshots.js`) and commits to `main` any that look different. Pull before working.
+  (`engine/test/support/readme-screenshots.js`) and commits to `main` any that look different, having passed the
+  Version check on that commit, which `main` requires (see Releasing). Pull before working.
 - **release:** runs first, and releases `engine/VERSION` if it is not released yet (see Releasing).
 - **released:** fails if `main` holds a change to what sites get that no release includes, or the tag sites call the
   shared steps at (`v1` for 1.x) is not on the latest release.
@@ -158,6 +159,12 @@ All of it is `.github/release.sh`. Run `npm run test:live` by hand before mergin
 trial after. The weekly dependency update raises the patch number itself when the packages sites install change, and
 puts what whoever merges it needs to know in a comment, as its description becomes the release's notes.
 `release.yml` moves the major version's tag for a release made by hand, which should not be needed.
+
+`main` has a ruleset: it takes a commit only once the **Version** check has passed on it, on a branch up to date with
+`main`. So two pull requests that each raise `engine/VERSION` to the same number cannot both be merged: the second
+must be brought up to date first, and its check then fails. Bring a pull request up to date with **Update branch**, or
+`gh pr update-branch`. Live's screenshots job runs the check itself on the commit it pushes, as GitHub runs no
+workflow for a push a workflow makes.
 
 Copies of the template update themselves from the repository named in `engine/UPSTREAM`
 (`.github/workflows/update.yml` and `engine/ci/update.sh`). An update replaces `engine/`, `package.json` and

@@ -106,6 +106,7 @@ jobs:
     runs-on: macos-15 # the README's screenshots are a Mac's, as most people reading it will see the page
     permissions:
       contents: write
+      statuses: write # to mark its commit as having passed the Version check, which main requires
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -129,9 +130,24 @@ jobs:
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
             commit -q -m "README screenshots, remade from the demos at ${GITHUB_SHA::7}"
           # main may have moved on while this ran; the screenshots are the only change, so they go on top of it.
+          # main takes only commits that have passed the Version check (a ruleset), which GitHub runs for no push a
+          # workflow makes with its own token: so it is run here, on the commit, given to GitHub first on a branch of
+          # its own, and the commit marked as having passed it.
           for attempt in 1 2 3; do
-            git fetch -q origin main && git rebase -q origin/main && git push -q origin HEAD:main && exit 0
+            if git fetch -q origin main && git rebase -q origin/main; then
+              bash .github/release.sh check origin/main # the screenshots change nothing sites get
+              git push -q -f origin HEAD:refs/heads/readme-screenshots
+              gh api "repos/$GITHUB_REPOSITORY/statuses/$(git rev-parse HEAD)" -f state=success -f context=version \
+                -f description="Nothing sites get changes: run by Live, which made this commit" > /dev/null
+              if git push -q origin HEAD:main; then
+                git push -q origin :refs/heads/readme-screenshots
+                exit 0
+              fi
+            fi
             sleep 10
           done
+          git push -q origin :refs/heads/readme-screenshots || true
           echo "::error title=The README's screenshots were not committed::main kept moving; run Live again."
           exit 1
+        env:
+          GH_TOKEN: ${{ github.token }} # to mark the commit as checked
