@@ -2,25 +2,30 @@
 # whatiiif: template only. Releasing WhatIIIF, where the version in engine/VERSION is the one thing anyone changes:
 #
 #   .github/release.sh check BASE   (a pull request) a change to what sites get must raise engine/VERSION above BASE's
-#   .github/release.sh release      (main) releases every version merged since the last release, each at the commit
-#                                   that brought it to main: the tag vX.Y.Z and the GitHub release, its words the
-#                                   description of the pull request that brought it; then points the tag of the major
-#                                   version (v1 for 1.x), which sites call the shared steps at, at the latest
+#   .github/release.sh release      (main) releases every version merged since the last release: the tag vX.Y.Z and the
+#                                   GitHub release, at the commit the pull request that brought it left main at, its
+#                                   words that pull request's description; then points the tag of the major version
+#                                   (v1 for 1.x), which sites call the shared steps at, at the latest
 #   .github/release.sh released     (main) fails unless everything sites get is in the release of engine/VERSION, and
 #                                   the tag of its major version points at it
+#   .github/release.sh next         the next patch version, which the weekly package update raises engine/VERSION to
+#   .github/release.sh changed BASE what sites get that differs between BASE and the files as they are, on one line
 #
-# Run by .github/workflows/version.yml and live.yml. A version with a hyphen (1.2.0-rc.1) is a pre-release: released
-# as one, it leaves the major version's tag on the last full release, as release.yml does for one made by hand.
+# Run by .github/workflows/version.yml, live.yml and dependencies.yml. A version with a hyphen (1.2.0-rc.1) is a
+# pre-release: released as one, it leaves the major version's tag on the last full release, as release.yml does for
+# one made by hand.
 set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/../engine/ci/versions.sh"
 
-# What sites get: everything a site made from the template runs, or is built from, but for tests and the README's
-# pictures.
-SITES=(engine ':!engine/test' ':!engine/artwork' package.json package-lock.json .gitattributes
+# What sites get: everything a site made from the template starts with, runs, or is built from, but for tests and the
+# README's pictures; and of the package files, what sites install, as `npm ci --omit=dev` leaves out devDependencies.
+SITES=(engine ':!engine/test' ':!engine/artwork' content .gitignore .gitattributes
   .github/workflows/deploy.yml .github/workflows/update.yml .github/workflows/publish.yml .github/workflows/offer-update.yml)
+PACKAGES=(package.json package-lock.json)
 
-version() { git show "${1:-HEAD}:engine/VERSION" | tr -d '[:space:]'; }
+# engine/VERSION at commit $1 or, with no commit, as it is now: like what sites get, read from the files as they are.
+version() { { if [[ -n "${1:-}" ]]; then git show "$1:engine/VERSION"; else cat engine/VERSION; fi; } | tr -d '[:space:]'; }
 major() { echo "v${1%%.*}"; }
-prerelease() { [[ "$1" == *-* ]]; }
 # A version as semantic versioning writes one: 1.2.0, or a pre-release such as 1.2.0-rc.1.
 valid() {
   if [[ ! "$1" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
@@ -28,25 +33,37 @@ valid() {
     exit 1
   fi
 }
-# Whether version $1 is above $2: by their numbers, and with the same numbers, a release above its pre-releases.
-above() {
-  local a=$1 b=$2 highest
-  [[ "$a" == "$b" ]] && return 1
-  if [[ "${a%%-*}" != "${b%%-*}" ]]; then
-    highest=$(printf '%s\n%s\n' "${a%%-*}" "${b%%-*}" | sort -V | tail -1)
-    [[ "$highest" == "${a%%-*}" ]]
-  elif ! prerelease "$a"; then
-    return 0
-  elif ! prerelease "$b"; then
-    return 1
-  else
-    highest=$(printf '%s\n%s\n' "$a" "$b" | sort -V | tail -1)
-    [[ "$highest" == "$a" ]]
-  fi
+
+# Of package file $2, at commit $1 or, with no commit, as it is now, what sites install: all but devDependencies.
+installed() {
+  { if [[ -n "$1" ]]; then git show "$1:$2"; else cat "$2"; fi; } 2> /dev/null |
+    jq -S 'del(.devDependencies) | if .packages then .packages |= with_entries(select(.value.dev != true) | .value |= del(.devDependencies)) else . end'
 }
-# The files of what sites get that differ between $1 and HEAD, on one line.
-changed() { git diff --name-only "$1" HEAD -- "${SITES[@]}" | paste -sd ' ' -; }
-released_at() { git ls-remote --exit-code --tags origin "refs/tags/$1" > /dev/null; }
+changed() {
+  local base=$1 file
+  {
+    git diff --name-only "$base" -- "${SITES[@]}"
+    for file in "${PACKAGES[@]}"; do
+      [[ "$(installed "$base" "$file")" == "$(installed '' "$file")" ]] || echo "$file"
+    done
+  } | paste -sd ' ' -
+}
+
+# Whether version tag $1 has its GitHub release, which is what copies are offered: a tag alone is not one.
+has_release() {
+  local errors
+  errors=$(mktemp)
+  if gh release view "$1" --repo "$GITHUB_REPOSITORY" --json tagName > /dev/null 2> "$errors"; then return 0; fi
+  if grep -qx 'release not found' "$errors"; then return 1; fi
+  cat "$errors" >&2
+  exit 1
+}
+
+# The pull request that brought commit $1 to main, as GitHub's API gives it, or {} for a commit pushed to main: GitHub
+# lists every pull request that holds the commit, open ones and those into other branches too.
+pull_of() {
+  gh api "repos/$GITHUB_REPOSITORY/commits/$1/pulls" | jq 'map(select(.merged_at != null and .base.ref == "main")) | first // {}'
+}
 
 check() {
   local base=$1 now before differ
@@ -73,32 +90,41 @@ check() {
   echo "Merging this releases $now."
 }
 
-# Releases version $1 at commit $2, unless it is released already.
+# Releases version $1, which commit $2 brought to main, unless it has its release already: at the commit its pull
+# request left main at, whichever way it was merged (by rebasing, that is after the commit that raised engine/VERSION),
+# or with no pull request, at $3, main's last commit before the next version.
 release_one() {
-  local now=$1 sha=$2 notes
-  if released_at "v$now"; then return; fi
-  # The release's words: the description of the pull request that brought it, without the line naming the tool that
-  # wrote it; GitHub's own list of what changed, if there is none.
+  local now=$1 sha=$2 target=$3 pr merged notes args
+  if has_release "v$now"; then return; fi
+  pr=$(pull_of "$sha")
+  merged=$(jq -r '.merge_commit_sha // empty' <<< "$pr")
+  if [[ -n "$merged" ]] && git merge-base --is-ancestor "$merged" HEAD 2> /dev/null; then target=$merged; fi
+  # The release's words: the pull request's description, without the line naming the tool that wrote it. GitHub's own
+  # list of what changed if there is none, or it is Dependabot's, which is written for whoever merges it.
   notes=$(mktemp)
-  gh api "repos/$GITHUB_REPOSITORY/commits/$sha/pulls" --jq '.[0].body // ""' | grep -v 'Generated with \[Claude Code\]' > "$notes" || true
-  local args=(release create "v$now" --target "$sha" --title "WhatIIIF $now")
+  jq -r 'if .user.login == "dependabot[bot]" then "" else .body // "" end' <<< "$pr" | { grep -v 'Generated with \[Claude Code\]' || true; } > "$notes"
+  args=(release create "v$now" --target "$target" --title "WhatIIIF $now")
   if grep -q '[^[:space:]]' "$notes"; then args+=(--notes-file "$notes"); else args+=(--generate-notes); fi
   if prerelease "$now"; then args+=(--prerelease); fi
   gh "${args[@]}"
-  echo "Released $now at $sha."
+  echo "Released $now at $target."
 }
 
-# Points the tag sites call, of version $1's major version, at its release, unless that is a pre-release or the tag is
-# on a later release already. (A release made with the workflow's own token starts no workflow, so release.yml, which
-# does this for a release made by hand, does not.)
+# Points the tag sites call, of version $1's major version, at its release, unless that is a pre-release, is not
+# released, or the tag is on a later release already. (A release made with the workflow's own token starts no
+# workflow, so release.yml, which does this for a release made by hand, does not.)
 point_major() {
   local now=$1 tag at
   tag=$(major "$now")
-  prerelease "$now" && return
+  if prerelease "$now" || ! has_release "v$now"; then return; fi
   git fetch -q -f origin "refs/tags/v$now:refs/tags/v$now"
   at=$(git ls-remote --tags origin "refs/tags/$tag" | cut -f1)
   [[ "$at" == "$(git rev-parse "v$now^{commit}")" ]] && return
-  if [[ -n "$at" ]] && git fetch -q -f origin "refs/tags/$tag:refs/tags/$tag" && above "$(version "$tag")" "$now"; then return; fi
+  if [[ -n "$at" ]]; then
+    # Fetched first, and not as part of the test below, so that if it fails the run stops rather than moves the tag.
+    git fetch -q -f origin "refs/tags/$tag:refs/tags/$tag"
+    if above "$(version "$tag")" "$now"; then return; fi
+  fi
   git tag -f "$tag" "v$now^{commit}" > /dev/null
   git push -q -f origin "refs/tags/$tag"
   echo "$tag points at $now."
@@ -110,10 +136,11 @@ release() {
     echo "Releases are made from main: this is $GITHUB_REF."
     return
   fi
-  local now since commit each before=
+  local now since before= commits=() each end i head
   now=$(version)
   valid "$now"
-  released_at "v$now" && before=yes
+  head=$(git rev-parse HEAD)
+  has_release "v$now" && before=yes
   # Every commit on main since the last release that changed engine/VERSION, oldest first: Live keeps only the latest
   # of the runs waiting for it, so one run may find several versions merged since the last. With no release before,
   # just this one.
@@ -121,14 +148,16 @@ release() {
   if [[ -n "$since" ]]; then
     # The last release first, so a run that stopped before moving its major version's tag is finished by the next.
     point_major "$(version "$since")"
-    for commit in $(git rev-list --reverse --first-parent "$since..HEAD" -- engine/VERSION); do
-      each=$(version "$commit")
-      valid "$each"
-      release_one "$each" "$commit"
-      point_major "$each"
-    done
+    commits=($(git rev-list --reverse --first-parent "$since..HEAD" -- engine/VERSION))
   fi
-  release_one "$now" "$(git rev-parse HEAD)"
+  for ((i = 0; i < ${#commits[@]}; i++)); do
+    each=$(version "${commits[i]}")
+    valid "$each"
+    if ((i + 1 < ${#commits[@]})); then end=$(git rev-parse "${commits[i + 1]}^1"); else end=$head; fi
+    release_one "$each" "${commits[i]}" "$end"
+    point_major "$each"
+  done
+  release_one "$now" "$head" "$head"
   point_major "$now"
   if [[ -n "$before" ]]; then echo "$now is released already."; else echo "$now is released."; fi
 }
@@ -139,8 +168,8 @@ released() {
   valid "$now"
   tag="v$now"
   git fetch -q --tags --force origin
-  if ! git rev-parse -q --verify "refs/tags/$tag" > /dev/null; then
-    echo "::error title=$now is not released::engine/VERSION says $now, which has no release: Live's release job should have made it."
+  if ! git rev-parse -q --verify "refs/tags/$tag" > /dev/null || ! has_release "$tag"; then
+    echo "::error title=$now is not released::engine/VERSION says $now, which has no GitHub release, so copies are not offered it: Live's release job should have made it."
     exit 1
   fi
   if ! prerelease "$now" && [[ "$(git rev-parse "$(major "$now")^{commit}" 2> /dev/null)" != "$(git rev-parse "$tag^{commit}")" ]]; then
@@ -152,7 +181,27 @@ released() {
     echo "::error title=main is ahead of $tag::$differ changed since $now was released, without a new version: raise engine/VERSION."
     exit 1
   fi
-  echo "Everything sites get on main is in $now, and $(major "$now") points at it."
+  if prerelease "$now"; then
+    echo "Everything sites get on main is in $now, a pre-release: $(major "$now"), which sites call, stays on the last full release."
+  else
+    echo "Everything sites get on main is in $now, and $(major "$now") points at it."
+  fi
+}
+
+# The next patch version: 1.1.0 → 1.1.1; of a pre-release, the next pre-release of the same version: 1.2.0-rc.1 →
+# 1.2.0-rc.2, 1.2.0-beta → 1.2.0-beta.1.
+next() {
+  local now last
+  now=$(version)
+  valid "$now"
+  last=${now##*[.-]}
+  if ! prerelease "$now"; then
+    echo "${now%.*}.$((10#$last + 1))"
+  elif [[ "$last" =~ ^[0-9]+$ ]]; then
+    echo "${now%"$last"}$((10#$last + 1))"
+  else
+    echo "$now.1"
+  fi
 }
 
 "$@"

@@ -137,20 +137,27 @@ names the repository to delete by hand. The trials:
 
 `main` is production, and the version in `engine/VERSION` is the one thing anyone changes to release:
 
-1. A pull request that changes what sites get (`engine/` but for its tests and the README's pictures, the package
-   files, `.gitattributes`, and the four workflows sites run) raises `engine/VERSION`, by semantic versioning: a fix
-   1.1.0 → 1.1.1, something new 1.1.0 → 1.2.0. The **Version** check fails until it does. Its description becomes
-   the release's notes, so write it for the people who use WhatIIIF. A pull request that changes nothing sites get
-   (the README, tests, the template's own workflows) needs no new version.
-2. Merging it releases that version: Live's first job makes the tag `vX.Y.Z`, the GitHub release "WhatIIIF X.Y.Z",
-   and moves the tag of its major version (`v1` for 1.x) to it, which every copy calls the shared steps at. A
-   version with a hyphen (1.2.0-rc.1) is released as a pre-release and moves nothing.
-3. Live then fails if `main` ever holds a change to what sites get that no release includes, or the major
-   version's tag is not on the latest release.
+1. A pull request that changes what sites get raises `engine/VERSION`, by semantic versioning: a fix 1.1.0 → 1.1.1,
+   something new 1.1.0 → 1.2.0. What sites get is `engine/` but for its tests and the README's pictures; `content/`
+   and `.gitignore`, which a new site starts with; the packages sites install (not `devDependencies`, which
+   `npm ci --omit=dev` leaves out); `.gitattributes`; and the four workflows sites run. The **Version** check fails
+   until it does. A pull request that changes nothing sites get (the README, tests, the template's own workflows)
+   needs no new version.
+2. Its description becomes the release's notes, so write it for the people who use WhatIIIF. A pull request from
+   Dependabot, or a version pushed to `main` without one, gets GitHub's own list of what changed instead.
+3. Merging it releases that version: Live's first job makes the tag `vX.Y.Z` and the GitHub release "WhatIIIF X.Y.Z"
+   at the commit the pull request left `main` at, however it was merged, and moves the tag of its major version (`v1`
+   for 1.x) to it, which every copy calls the shared steps at, unless that tag is on a later release already. A
+   version with a hyphen (1.2.0-rc.1) is released as a pre-release and moves nothing. Versions merged before Live
+   runs are each released, oldest first, and a run that stops half way is finished by the next.
+4. Live then fails if `main` ever holds a change to what sites get that no release includes, if `engine/VERSION`
+   has no GitHub release (a tag alone is not offered to copies), or if the major version's tag is not on the latest
+   release.
 
 All of it is `.github/release.sh`. Run `npm run test:live` by hand before merging a new version, and the update
-trial after. The weekly dependency update raises the patch number itself. `release.yml` moves the major version's
-tag for a release made by hand, which should not be needed.
+trial after. The weekly dependency update raises the patch number itself when the packages sites install change, and
+puts what whoever merges it needs to know in a comment, as its description becomes the release's notes.
+`release.yml` moves the major version's tag for a release made by hand, which should not be needed.
 
 Copies of the template update themselves from the repository named in `engine/UPSTREAM`
 (`.github/workflows/update.yml` and `engine/ci/update.sh`). An update replaces `engine/`, `package.json` and
